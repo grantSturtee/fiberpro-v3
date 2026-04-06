@@ -1,7 +1,57 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-html, body {
-  background-color: #ffffff;
+@theme {
+  /* ── Brand ─────────────────────────────────────────────── */
+  --color-primary: #005bc1;
+  --color-primary-dim: #004faa;
+  --color-primary-soft: #e8f0fb;
+  --color-primary-muted: #b3cef0;
+
+  /* ── Surface Hierarchy (The "Tonal Sculpting" system) ─── */
+  --color-surface: #f8f9fa;        /* base app background          */
+  --color-canvas: #f1f4f6;        /* sidebar / secondary zones    */
+  --color-card: #ffffff;           /* content cards                */
+  --color-wash: #e3e9ec;          /* nested elements / hover      */
+  --color-rule: #d4dde4;          /* rare dividers only           */
+
+  /* ── Ink (Text) ─────────────────────────────────────────── */
+  --color-ink: #1a2228;
+  --color-dim: #4a5a68;
+  --color-muted: #8a9ab0;
+  --color-faint: #b8c6d0;
+
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: #f8f9fa;
+  color: #1a2228;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Thin scrollbars ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4dde4;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8c6d0;
 }
