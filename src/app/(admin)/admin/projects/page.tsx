@@ -47,7 +47,7 @@ export default async function AdminProjectsPage({
       : allProjects.filter((p) => TAB_STATUSES[tab].includes(p.status));
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl">
+    <div className="p-8 space-y-6 max-w-6xl mx-auto">
       <PageHeader
         title="Projects"
         subtitle={`${projects.length} project${projects.length !== 1 ? "s" : ""}`}

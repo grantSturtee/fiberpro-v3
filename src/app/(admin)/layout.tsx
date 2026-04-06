@@ -1,17 +1,39 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
-// Admin layout: persistent sidebar + scrollable main area.
-// Sidebar handles its own navigation state (client component).
-// TODO: Add middleware-based role guard — admin/designer only.
+// Admin layout: persistent sidebar + scrollable content area.
+// Fetches real user identity server-side to populate the sidebar.
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/sign-in");
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("display_name, role")
+    .eq("id", userData.user.id)
+    .single();
+
+  const displayName = profile?.display_name || userData.user.email || "Admin";
+  const role = profile?.role || "admin";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <AdminSidebar />
+      <AdminSidebar user={{ displayName, role, initials }} />
       <main className="flex-1 overflow-y-auto min-w-0">
         {children}
       </main>

@@ -123,7 +123,7 @@ export default async function DesignerDashboardPage() {
   const GROUPS = DESIGNER_STATUS_GROUPS;
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl">
+    <div className="p-8 space-y-8 max-w-4xl mx-auto">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-ink">My Work</h1>

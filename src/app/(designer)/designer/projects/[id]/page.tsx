@@ -112,7 +112,7 @@ export default async function DesignerProjectDetailPage({
   const hasTCPFiles = tcpFiles.length > 0;
 
   return (
-    <div className="p-8 space-y-6 max-w-3xl">
+    <div className="p-8 space-y-6 max-w-3xl mx-auto">
 
       {/* Breadcrumb + title */}
       <div>

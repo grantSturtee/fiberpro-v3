@@ -24,6 +24,7 @@ export type ProjectListRow = {
   assigned_designer_id: string | null;
   assigned_designer_name: string | null;
   created_at: string;
+  updated_at: string | null;
   requested_approval_date: string | null;
 };
 
@@ -86,11 +87,12 @@ export async function getAdminProjectList(
       assigned_designer_id,
       assigned_at,
       created_at,
+      updated_at,
       requested_approval_date,
       companies!inner ( name ),
       designer:user_profiles!projects_assigned_designer_id_fkey ( display_name )
     `)
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
 
   if (error) {
     console.error("getAdminProjectList error:", error);
@@ -113,6 +115,7 @@ export async function getAdminProjectList(
     assigned_designer_name:
       (row.designer as { display_name: string } | null)?.display_name ?? null,
     created_at: row.created_at as string,
+    updated_at: row.updated_at as string | null,
     requested_approval_date: row.requested_approval_date as string | null,
   }));
 }
@@ -164,6 +167,7 @@ export async function getCompanyProjectList(
     assigned_designer_id: row.assigned_designer_id as string | null,
     assigned_designer_name: null,
     created_at: row.created_at as string,
+    updated_at: null,
     requested_approval_date: row.requested_approval_date as string | null,
   }));
 }
@@ -367,6 +371,7 @@ export async function getDesignerProjectList(
     assigned_designer_id: row.assigned_designer_id as string | null,
     assigned_designer_name: null,
     created_at: row.created_at as string,
+    updated_at: null,
     requested_approval_date: row.requested_approval_date as string | null,
   }));
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/ui/Logo";
 import { SignOutButton } from "@/components/ui/SignOutButton";
 
 function IconWork() {
@@ -19,7 +20,13 @@ const navItems = [
   { label: "My Work", href: "/designer", icon: <IconWork />, exact: true },
 ];
 
-export function DesignerSidebar() {
+type SidebarUser = {
+  displayName: string;
+  role: string;
+  initials: string;
+};
+
+export function DesignerSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
 
   function isActive(href: string, exact?: boolean) {
@@ -29,14 +36,9 @@ export function DesignerSidebar() {
 
   return (
     <aside className="w-[220px] flex-shrink-0 flex flex-col h-screen bg-canvas">
-      {/* Wordmark */}
+      {/* Brand mark */}
       <div className="h-14 flex items-center px-5 flex-shrink-0">
-        <span className="text-sm font-bold text-ink tracking-tight">
-          Fiber<span className="text-primary">Pro</span>
-        </span>
-        <span className="ml-2 text-[10px] font-semibold text-muted bg-wash rounded px-1.5 py-0.5 tracking-wide">
-          V3
-        </span>
+        <Logo />
       </div>
 
       {/* Navigation */}
@@ -65,17 +67,15 @@ export function DesignerSidebar() {
         })}
       </nav>
 
-      {/* User area */}
+      {/* User identity */}
       <div className="px-3 py-3 flex-shrink-0">
-        <div className="rounded-lg bg-wash px-3 py-2.5 flex items-center gap-3">
+        <div className="rounded-lg bg-wash px-3 py-2.5 flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-            {/* TODO: Replace with session user initials */}
-            <span className="text-[10px] font-semibold text-primary">MW</span>
+            <span className="text-[10px] font-semibold text-primary">{user.initials}</span>
           </div>
           <div className="min-w-0 flex-1">
-            {/* TODO: Replace with session user data */}
-            <p className="text-xs font-medium text-ink truncate">Designer</p>
-            <p className="text-[10px] text-muted">FiberPro</p>
+            <p className="text-xs font-medium text-ink truncate">{user.displayName}</p>
+            <p className="text-[10px] text-muted capitalize">{user.role}</p>
           </div>
           <SignOutButton />
         </div>
