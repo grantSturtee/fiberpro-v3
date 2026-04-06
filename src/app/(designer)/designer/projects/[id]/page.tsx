@@ -1,39 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { UploadTCPForm } from "@/components/designer/UploadTCPForm";
+import { SubmitForReviewForm } from "@/components/designer/SubmitForReviewForm";
+import { DeleteTCPFileForm } from "@/components/designer/DeleteTCPFileForm";
+import { createClient } from "@/lib/supabase/server";
+import { getProjectDetail } from "@/lib/queries/projects";
+import { formatDate, humanize } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Project" };
 
-// Designer project view: focused on their task — upload TCP sheets.
-// Designer sees: project info (read), SLD references (read), TCP upload (write).
-// TODO: Replace with Supabase fetch by project ID (params.id), scoped to assigned designer.
-
-const PLACEHOLDER = {
-  id: "4",
-  jobNumber: "FP-2026-0018",
-  jobName: "Comcast Aerial TCP — Rt. 46 SB",
-  client: "Comcast Northeast",
-  authority: "Bergen County",
-  county: "Bergen",
-  status: "in_design" as const,
-  jobAddress: "Route 46 SB, Lodi, NJ 07644",
-  typeOfPlan: "Aerial",
-  jobType: "TCP",
-  notes: "Work zone spans MP 63.4–64.1. Shoulder closure only.",
-  requestedApprovalDate: "Apr 25, 2026",
-  selectedTCDs: [
-    { code: "TCD-2", description: "Divided highway shoulder closure, no flaggers" },
-  ],
-  sldFiles: [
-    { id: "s1", name: "Rt46_SB_SLD_63.4-64.1.pdf", uploadedAt: "Apr 3, 2026" },
-  ],
-  tcpFiles: [
-    { id: "t1", name: "Rt46_SB_TCP_Sheet1.pdf", uploadedAt: "Apr 4, 2026" },
-    { id: "t2", name: "Rt46_SB_TCP_Sheet2.pdf", uploadedAt: "Apr 4, 2026" },
-  ],
-};
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function DesignerProjectDetailPage({
   params,
@@ -41,11 +21,99 @@ export default async function DesignerProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // TODO: const project = await getProjectForDesigner(id);
-  const project = { ...PLACEHOLDER, id };
+
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/sign-in");
+
+  const designerId = userData.user.id;
+
+  const project = await getProjectDetail(supabase, id);
+
+  // 404 if not found or not assigned to this designer
+  if (!project || project.assigned_designer_id !== designerId) {
+    notFound();
+  }
+
+  // Fetch SLD files (read-only reference for designer)
+  const { data: sldData } = await supabase
+    .from("project_files")
+    .select("id, file_name, created_at, storage_path")
+    .eq("project_id", id)
+    .eq("file_category", "sld_sheet")
+    .order("created_at", { ascending: true });
+
+  const sldFiles = (sldData ?? []) as {
+    id: string;
+    file_name: string;
+    created_at: string;
+    storage_path: string;
+  }[];
+
+  // Fetch TCP files uploaded by this designer
+  const { data: tcpData } = await supabase
+    .from("project_files")
+    .select("id, file_name, created_at, storage_path, file_size_bytes")
+    .eq("project_id", id)
+    .eq("file_category", "tcp_pdf")
+    .order("created_at", { ascending: true });
+
+  const tcpFiles = (tcpData ?? []) as {
+    id: string;
+    file_name: string;
+    created_at: string;
+    storage_path: string;
+    file_size_bytes: number | null;
+  }[];
+
+  // Generate signed download URLs for SLD files
+  const sldUrls: Record<string, string> = {};
+  for (const f of sldFiles) {
+    const { data: urlData } = await supabase.storage
+      .from("project-files")
+      .createSignedUrl(f.storage_path, 3600);
+    if (urlData?.signedUrl) sldUrls[f.id] = urlData.signedUrl;
+  }
+
+  // Generate signed download URLs for TCP files
+  const tcpUrls: Record<string, string> = {};
+  for (const f of tcpFiles) {
+    const { data: urlData } = await supabase.storage
+      .from("project-files")
+      .createSignedUrl(f.storage_path, 3600);
+    if (urlData?.signedUrl) tcpUrls[f.id] = urlData.signedUrl;
+  }
+
+  // Fetch TCD selections (admin-selected, designer reads as reference)
+  const { data: tcdData } = await supabase
+    .from("project_tcd_selections")
+    .select("id, tcd_library ( code, description )")
+    .eq("project_id", id)
+    .order("sort_order", { ascending: true });
+
+  const selectedTCDs = (tcdData ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    code: (row.tcd_library as { code: string; description: string } | null)?.code ?? "—",
+    description:
+      (row.tcd_library as { code: string; description: string } | null)?.description ?? "",
+  }));
+
+  // Authority + approval display
+  const authorityDisplay = (() => {
+    if (project.authority_type === "njdot") return "NJDOT";
+    if (project.county) return `${project.county} County`;
+    if (project.city) return project.city;
+    return humanize(project.authority_type);
+  })();
+
+  // Determine if designer can still upload/delete (active design statuses)
+  const canEdit = ["assigned", "in_design", "revisions_required"].includes(project.status);
+  const hasTCPFiles = tcpFiles.length > 0;
 
   return (
     <div className="p-8 space-y-6 max-w-3xl">
+
       {/* Breadcrumb + title */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
@@ -53,75 +121,127 @@ export default async function DesignerProjectDetailPage({
             My Work
           </Link>
           <span className="text-xs text-faint">/</span>
-          <span className="text-xs text-muted font-mono">{project.jobNumber}</span>
+          <span className="text-xs text-muted font-mono">{project.job_number}</span>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-xl font-semibold text-ink">{project.jobName}</h1>
+          <h1 className="text-xl font-semibold text-ink">{project.job_name}</h1>
           <ProjectStatusBadge status={project.status} />
         </div>
         <p className="text-sm text-muted mt-0.5">
-          {project.client} · {project.authority} · Due {project.requestedApprovalDate}
+          {project.company_name ?? "—"} · {authorityDisplay}
+          {project.requested_approval_date
+            ? ` · Due ${formatDate(project.requested_approval_date)}`
+            : ""}
         </p>
       </div>
 
-      {/* Project reference info (read-only) */}
+      {/* Revisions notice */}
+      {project.status === "revisions_required" && (
+        <div className="flex items-start gap-3 bg-red-50 rounded-xl px-5 py-4">
+          <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-800">Revisions requested</p>
+            <p className="text-xs text-red-700 mt-0.5">
+              Admin has reviewed your TCP sheets and requested changes. Upload revised sheets and
+              resubmit for review.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Submitted notice */}
+      {project.status === "waiting_for_admin_review" && (
+        <div className="flex items-start gap-3 bg-violet-50 rounded-xl px-5 py-4">
+          <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 flex-shrink-0" />
+          <p className="text-sm text-violet-800">
+            TCP sheets submitted. Awaiting admin review.
+          </p>
+        </div>
+      )}
+
+      {/* Project reference info */}
       <SectionCard title="Project Details" description="Provided by admin. Read-only.">
         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
           {[
-            { label: "Job Address",   value: project.jobAddress },
-            { label: "Type of Plan",  value: project.typeOfPlan },
-            { label: "Job Type",      value: project.jobType },
-            { label: "Authority",     value: project.authority },
+            { label: "Job Address",   value: project.job_address },
+            { label: "Type of Plan",  value: humanize(project.type_of_plan) },
+            { label: "Job Type",      value: humanize(project.job_type) },
+            { label: "Authority",     value: authorityDisplay },
             { label: "County",        value: project.county },
           ].map(({ label, value }) => (
             <div key={label}>
               <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">{label}</p>
-              <p className="text-sm text-ink">{value}</p>
+              <p className="text-sm text-ink">{value || <span className="text-faint">—</span>}</p>
             </div>
           ))}
         </div>
         {project.notes && (
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
-            <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">Notes from Admin</p>
+            <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">
+              Notes from Admin
+            </p>
             <p className="text-sm text-ink">{project.notes}</p>
           </div>
         )}
       </SectionCard>
 
       {/* TCD reference */}
-      <SectionCard title="Selected TCD Sheets" description="Selected by admin. Use these as the basis for your TCP design.">
-        <div className="space-y-2">
-          {project.selectedTCDs.map((tcd) => (
-            <div key={tcd.code} className="flex items-center justify-between gap-4 bg-surface rounded-lg px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-ink">{tcd.code}</p>
-                <p className="text-xs text-muted">{tcd.description}</p>
+      {selectedTCDs.length > 0 && (
+        <SectionCard
+          title="Selected TCD Sheets"
+          description="Admin-selected. Use as the basis for your TCP design."
+        >
+          <div className="space-y-2">
+            {selectedTCDs.map((tcd) => (
+              <div
+                key={tcd.id}
+                className="flex items-center gap-4 bg-surface rounded-lg px-4 py-3"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-ink">{tcd.code}</p>
+                  <p className="text-xs text-muted">{tcd.description}</p>
+                </div>
               </div>
-              {/* TODO: View/download TCD sheet PDF from library */}
-              <button className="text-xs text-primary hover:underline flex-shrink-0">View Sheet</button>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
-      {/* SLD reference (read-only for designer) */}
-      <SectionCard title="SLD Sheets" description="Uploaded by admin. Use as reference geometry for the TCP layout.">
-        {project.sldFiles.length === 0 ? (
+      {/* SLD reference — read-only */}
+      <SectionCard
+        title="SLD Sheets"
+        description="Uploaded by admin. Use as reference geometry for the TCP layout."
+      >
+        {sldFiles.length === 0 ? (
           <EmptyState
             title="No SLD sheets yet"
             description="Admin has not uploaded SLD sheets. Reach out for clarification before starting design."
           />
         ) : (
           <div className="divide-y divide-surface">
-            {project.sldFiles.map((f) => (
+            {sldFiles.map((f) => (
               <div key={f.id} className="flex items-center justify-between gap-4 py-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
                     <span className="text-[9px] font-bold text-red-600">PDF</span>
                   </div>
-                  <p className="text-sm text-ink truncate">{f.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink truncate">{f.file_name}</p>
+                    <p className="text-xs text-muted">{formatDate(f.created_at)}</p>
+                  </div>
                 </div>
-                <button className="text-xs text-primary hover:underline flex-shrink-0">Download</button>
+                {sldUrls[f.id] ? (
+                  <a
+                    href={sldUrls[f.id]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex-shrink-0"
+                  >
+                    Download
+                  </a>
+                ) : (
+                  <span className="text-xs text-faint">—</span>
+                )}
               </div>
             ))}
           </div>
@@ -131,39 +251,45 @@ export default async function DesignerProjectDetailPage({
       {/* TCP upload — designer's primary action */}
       <SectionCard
         title="TCP Sheets"
-        description="Upload your completed Traffic Control Plan sheets here. All files must be PDF."
-        action={
-          <button
-            className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          >
-            {/* TODO: Wire to Supabase Storage upload, file_category = 'tcp_pdf' */}
-            + Upload TCP Sheet
-          </button>
-        }
+        description="Upload your completed Traffic Control Plan PDFs here."
+        action={canEdit ? <UploadTCPForm projectId={project.id} /> : undefined}
       >
-        {project.tcpFiles.length === 0 ? (
+        {tcpFiles.length === 0 ? (
           <EmptyState
             title="No TCP sheets uploaded yet"
-            description="Upload your Traffic Control Plan PDF sheets. You can upload multiple sheets."
+            description={
+              canEdit
+                ? "Upload your Traffic Control Plan PDF sheets. You can upload multiple sheets."
+                : "No TCP sheets uploaded for this project."
+            }
           />
         ) : (
           <div className="divide-y divide-surface">
-            {project.tcpFiles.map((f) => (
+            {tcpFiles.map((f) => (
               <div key={f.id} className="flex items-center justify-between gap-4 py-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
                     <span className="text-[9px] font-bold text-red-600">PDF</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-ink truncate">{f.name}</p>
-                    <p className="text-xs text-muted">Uploaded {f.uploadedAt}</p>
+                    <p className="text-sm text-ink truncate">{f.file_name}</p>
+                    <p className="text-xs text-muted">{formatDate(f.created_at)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <button className="text-xs text-primary hover:underline">Download</button>
-                  {/* TODO: Only allow delete if project is not yet submitted for review */}
-                  <button className="text-xs text-danger hover:underline">Remove</button>
+                  {tcpUrls[f.id] && (
+                    <a
+                      href={tcpUrls[f.id]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Download
+                    </a>
+                  )}
+                  {canEdit && (
+                    <DeleteTCPFileForm fileId={f.id} projectId={project.id} />
+                  )}
                 </div>
               </div>
             ))}
@@ -171,24 +297,10 @@ export default async function DesignerProjectDetailPage({
         )}
       </SectionCard>
 
-      {/* Submit for review */}
-      <div className="flex items-center justify-between gap-4 bg-card rounded-xl px-6 py-5"
-        style={{ boxShadow: "0 1px 12px rgba(43,52,55,0.06)" }}>
-        <div>
-          <p className="text-sm font-semibold text-ink">Ready for admin review?</p>
-          <p className="text-xs text-muted mt-0.5">
-            All TCP sheets must be uploaded before submitting for review.
-          </p>
-        </div>
-        <button
-          className="flex-shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-          style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          // TODO: Trigger status change: in_design → waiting_for_admin_review
-          // TODO: Disable if tcpFiles.length === 0
-        >
-          Submit for Review
-        </button>
-      </div>
+      {/* Submit for review — only shown when designer can still act */}
+      {canEdit && (
+        <SubmitForReviewForm projectId={project.id} hasTCPFiles={hasTCPFiles} />
+      )}
     </div>
   );
 }

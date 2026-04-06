@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AUTHORITY_TYPE_DB_MAP, type AuthorityTypeDisplay } from "@/lib/constants/authorities";
 
 export type SubmitProjectState = {
   error: string | null;
@@ -21,10 +22,10 @@ export async function submitProject(
 
   const userId = userData.user.id;
 
-  // ── 2. Look up the user's company_id ──────────────────────────────────────
+  // ── 2. Look up membership → company_id ────────────────────────────────────
   const { data: membership, error: membershipError } = await supabase
     .from("company_memberships")
-    .select("company_id")
+    .select("company_id, role")
     .eq("user_id", userId)
     .single();
 
@@ -34,86 +35,106 @@ export async function submitProject(
 
   const companyId = membership.company_id;
 
-  // ── 3. Parse and validate required fields ─────────────────────────────────
+  // ── 3. Auto-populate system fields from DB ────────────────────────────────
+  // Project Manager = submitting user's display_name from user_profiles
+  const { data: submitterProfile } = await supabase
+    .from("user_profiles")
+    .select("display_name")
+    .eq("id", userId)
+    .single();
+
+  const projectManagerName = submitterProfile?.display_name || userData.user.email || "Unknown";
+
+  // Company Manager = the company_admin for this company (if one exists)
+  let companyManagerName: string | null = null;
+  const { data: companyAdmins } = await supabase
+    .from("company_memberships")
+    .select("user_id, role, user_profiles ( display_name )")
+    .eq("company_id", companyId)
+    .eq("role", "company_admin")
+    .limit(1);
+
+  if (companyAdmins && companyAdmins.length > 0) {
+    const adminProfiles = companyAdmins[0].user_profiles as unknown as { display_name: string }[] | null;
+    companyManagerName = Array.isArray(adminProfiles) ? (adminProfiles[0]?.display_name ?? null) : null;
+    // If the submitter is the company_admin, try project_manager role instead
+    if (companyAdmins[0].user_id === userId) {
+      const { data: managers } = await supabase
+        .from("company_memberships")
+        .select("user_profiles ( display_name )")
+        .eq("company_id", companyId)
+        .eq("role", "project_manager")
+        .limit(1);
+      if (managers && managers.length > 0) {
+        const mgrProfiles = managers[0].user_profiles as unknown as { display_name: string }[] | null;
+        companyManagerName = Array.isArray(mgrProfiles) ? (mgrProfiles[0]?.display_name ?? null) : null;
+      }
+    }
+  }
+
+  // Date submitted = today (system-generated, not user-entered)
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // ── 4. Parse and validate required fields ─────────────────────────────────
   const jobName = (formData.get("job_name") as string)?.trim();
   const requestedApprovalDate = formData.get("requested_approval_date") as string | null;
   const jobAddress = (formData.get("job_address") as string)?.trim();
-  const authorityTypeRaw = (formData.get("authority_type") as string)?.toLowerCase();
-  const county = (formData.get("county") as string)?.trim();
+  const authorityTypeRaw = formData.get("authority_type") as string;
   const city = (formData.get("city") as string)?.trim();
-  const typeOfPlanRaw = (formData.get("type_of_plan") as string)?.toLowerCase();
-  const jobTypeRaw = (formData.get("job_type") as string)?.toLowerCase();
+  const typeOfPlanRaw = (formData.get("type_of_plan") as string);
 
   if (!jobName) return { error: "Job Name is required." };
   if (!requestedApprovalDate) return { error: "Requested Approval Date is required." };
   if (!jobAddress) return { error: "Job Address is required." };
   if (!authorityTypeRaw) return { error: "Authority Type is required." };
-  if (!county) return { error: "County is required." };
-  if (!city) return { error: "City is required." };
-  if (!typeOfPlanRaw) return { error: "Type of Plan is required." };
-  if (!jobTypeRaw) return { error: "Job Type is required." };
+  if (!city) return { error: "City / Municipality is required." };
+  if (!typeOfPlanRaw) return { error: "Job Type is required." };
 
-  // Map display values to enum values
-  const authorityTypeMap: Record<string, string> = {
-    county: "county",
-    njdot: "njdot",
-    municipal: "municipal",
-    other: "other",
-  };
-  const planTypeMap: Record<string, string> = {
-    aerial: "aerial",
-    underground: "underground",
-    mixed: "mixed",
-    other: "other",
-  };
-  const jobTypeMap: Record<string, string> = {
-    tcp: "tcp",
-    sld: "sld",
-    "full package": "full_package",
-    full_package: "full_package",
-    revision: "revision",
-    other: "other",
-  };
-
-  const authorityType = authorityTypeMap[authorityTypeRaw];
-  const typeOfPlan = planTypeMap[typeOfPlanRaw];
-  const jobType = jobTypeMap[jobTypeRaw];
-
+  // Map authority type display label → DB enum value
+  const authorityType = AUTHORITY_TYPE_DB_MAP[authorityTypeRaw as AuthorityTypeDisplay];
   if (!authorityType) return { error: "Invalid authority type." };
-  if (!typeOfPlan) return { error: "Invalid plan type." };
-  if (!jobType) return { error: "Invalid job type." };
+
+  // Map job type (type_of_plan) display → DB enum value
+  const planTypeMap: Record<string, string> = {
+    Aerial:      "aerial",
+    Underground: "underground",
+    Mixed:       "mixed",
+    Other:       "other",
+  };
+  const typeOfPlan = planTypeMap[typeOfPlanRaw];
+  if (!typeOfPlan) return { error: "Invalid job type." };
 
   // Optional fields
-  const rhinoPM = (formData.get("rhino_pm") as string)?.trim() || null;
-  const comcastManager = (formData.get("comcast_manager") as string)?.trim() || null;
   const jobNumberClient = (formData.get("job_number_client") as string)?.trim() || null;
-  const submittedToFiberpro = (formData.get("submitted_to_fiberpro") as string) || null;
-  const township = (formData.get("township") as string)?.trim() || null;
+  const county = (formData.get("county") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  // State is stored in the `state` column (e.g. "NJ") — not appended to job_address
+  const stateAbbr = (formData.get("state") as string)?.trim() || null;
 
-  // ── 4. Insert project record ───────────────────────────────────────────────
+  // ── 5. Insert project record ───────────────────────────────────────────────
   // job_number is auto-generated by DB trigger; pass empty string to trigger it
   const { data: project, error: insertError } = await supabase
     .from("projects")
     .insert({
-      job_number: "",          // trigger overwrites this
+      job_number: "",
       company_id: companyId,
       submitted_by: userId,
       status: "intake_review",
       billing_status: "not_ready",
       job_name: jobName,
       job_number_client: jobNumberClient,
-      rhino_pm: rhinoPM,
-      comcast_manager: comcastManager,
-      submitted_to_fiberpro: submittedToFiberpro || null,
+      rhino_pm: projectManagerName,
+      comcast_manager: companyManagerName,
+      submitted_to_fiberpro: today,
       requested_approval_date: requestedApprovalDate,
       job_address: jobAddress,
+      state: stateAbbr,
       authority_type: authorityType,
       county,
       city,
-      township,
+      township: null,
       type_of_plan: typeOfPlan,
-      job_type: jobType,
+      job_type: null,  // Set by admin during intake review
       notes,
     })
     .select("id")
@@ -124,16 +145,15 @@ export async function submitProject(
     return { error: "Failed to create project. Please try again." };
   }
 
-  // ── 5. Create initial activity record ─────────────────────────────────────
+  // ── 6. Create initial activity record ─────────────────────────────────────
   await supabase.from("project_activity").insert({
     project_id: project.id,
     actor_id: userId,
-    actor_label: userData.user.email ?? "Company User",
+    actor_label: projectManagerName,
     action: "Project submitted",
     metadata: { source: "company_submit" },
   });
 
-  // ── 6. Redirect to new project detail page ────────────────────────────────
-  // NOTE: redirect() throws and must be called outside try/catch
+  // ── 7. Redirect to new project detail page ────────────────────────────────
   redirect(`/company/projects/${project.id}`);
 }

@@ -293,3 +293,80 @@ export async function getCompany(
   if (error || !data) return null;
   return data as { id: string; name: string; billing_email: string | null };
 }
+
+// ── Designer-specific queries ──────────────────────────────────────────────────
+
+/**
+ * Fetch all users with role = designer, for the assign designer dropdown.
+ * Only callable from admin context (admin read-all policy on user_profiles).
+ */
+export async function getDesigners(
+  supabase: SupabaseClient
+): Promise<{ id: string; display_name: string; email: string }[]> {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("id, display_name, email")
+    .eq("role", "designer")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    console.error("getDesigners error:", error);
+    return [];
+  }
+
+  return (data ?? []) as { id: string; display_name: string; email: string }[];
+}
+
+/**
+ * Fetch projects assigned to a specific designer.
+ * Returns most-recent-first, scoped to the current user's assignments.
+ */
+export async function getDesignerProjectList(
+  supabase: SupabaseClient,
+  designerId: string
+): Promise<ProjectListRow[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select(`
+      id,
+      job_number,
+      job_name,
+      job_number_client,
+      status,
+      billing_status,
+      authority_type,
+      county,
+      city,
+      company_id,
+      assigned_designer_id,
+      created_at,
+      requested_approval_date,
+      companies!inner ( name )
+    `)
+    .eq("assigned_designer_id", designerId)
+    .not("status", "in", '("approved","package_generating","ready_for_submission","submitted","waiting_on_authority","authority_action_needed","permit_received","closed","cancelled")')
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("getDesignerProjectList error:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    job_number: row.job_number as string,
+    job_name: row.job_name as string,
+    job_number_client: row.job_number_client as string | null,
+    status: row.status as ProjectStatus,
+    billing_status: row.billing_status as BillingStatus,
+    authority_type: row.authority_type as string | null,
+    county: row.county as string | null,
+    city: row.city as string | null,
+    company_id: row.company_id as string,
+    company_name: (row.companies as { name: string } | null)?.name ?? null,
+    assigned_designer_id: row.assigned_designer_id as string | null,
+    assigned_designer_name: null,
+    created_at: row.created_at as string,
+    requested_approval_date: row.requested_approval_date as string | null,
+  }));
+}

@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { AUTHORITY_TYPE_OPTIONS, NJ_COUNTIES } from "@/lib/constants/authorities";
-import { PLAN_TYPE_OPTIONS, JOB_TYPE_OPTIONS } from "@/lib/constants/project";
+import { AUTHORITY_TYPE_OPTIONS, US_STATES } from "@/lib/constants/authorities";
+import { PLAN_TYPE_OPTIONS } from "@/lib/constants/project";
 import { submitProject, type SubmitProjectState } from "./actions";
 
 const initialState: SubmitProjectState = { error: null };
@@ -44,7 +44,7 @@ function Field({ label, name, type = "text", placeholder, required, hint }: Fiel
 type SelectFieldProps = {
   label: string;
   name: string;
-  options: string[];
+  options: readonly string[];
   required?: boolean;
   hint?: string;
 };
@@ -74,38 +74,100 @@ function SelectField({ label, name, options, required, hint }: SelectFieldProps)
   );
 }
 
+// Read-only system-populated field — shows a value that will be set automatically.
+function SystemField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-dim mb-1.5">{label}</label>
+      <div
+        className="w-full bg-canvas rounded-lg px-3.5 py-2.5 text-sm text-dim"
+        style={{ border: "1px solid #d4dde4" }}
+      >
+        {value}
+      </div>
+      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+// ── State select ──────────────────────────────────────────────────────────────
+
+function StateSelect() {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="state">
+        State<span className="text-red-500 ml-0.5">*</span>
+      </label>
+      <select
+        id="state"
+        name="state"
+        required
+        defaultValue="NJ"
+        className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink
+                   outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
+        style={{ border: "1px solid #d4dde4" }}
+      >
+        <option value="">Select state…</option>
+        {US_STATES.map((s) => (
+          <option key={s.abbr} value={s.abbr}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+type SubmitProjectFormProps = {
+  submitterName: string;
+  companyManagerName: string | null;
+};
+
 // ── Main form ─────────────────────────────────────────────────────────────────
 
-export function SubmitProjectForm() {
+export function SubmitProjectForm({
+  submitterName,
+  companyManagerName,
+}: SubmitProjectFormProps) {
   const [state, formAction, pending] = useActionState(submitProject, initialState);
 
   return (
     <form className="space-y-8" action={formAction}>
 
-      {/* ── Contact / Reference ─────────────────────────────── */}
+      {/* ── Contact & Reference ───────────────────────────────── */}
       <fieldset>
         <legend className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
           Contact &amp; Reference
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Rhino PM" name="rhino_pm" placeholder="Full name" />
-          <Field label="Comcast Manager" name="comcast_manager" placeholder="Full name" />
+          {/*
+            Project Manager and Company Manager are system-driven:
+            - Project Manager = the signed-in user submitting this form
+            - Company Manager = the company admin on file for this account
+            These are shown for confirmation only; values are set by the server.
+          */}
+          <SystemField
+            label="Project Manager"
+            value={submitterName}
+            hint="Auto-populated from your account"
+          />
+          <SystemField
+            label="Company Manager"
+            value={companyManagerName ?? "—"}
+            hint="The company admin on file for your account"
+          />
           <Field
             label="Client Job Number"
             name="job_number_client"
             placeholder="e.g. JB-2026-04812"
-            hint="The JB number or client reference ID"
-          />
-          <Field
-            label="Date Submitted to FiberPro"
-            name="submitted_to_fiberpro"
-            type="date"
-            required
+            hint="Your internal reference number for this project"
           />
         </div>
       </fieldset>
 
-      {/* ── Project Details ──────────────────────────────────── */}
+      {/* ── Project Details ───────────────────────────────────── */}
       <fieldset style={{ borderTop: "1px solid #e3e9ec" }} className="pt-8">
         <legend className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
           Project Details
@@ -115,7 +177,7 @@ export function SubmitProjectForm() {
             <Field
               label="Job Name"
               name="job_name"
-              placeholder="e.g. Comcast Aerial TCP — Rt. 46 SB"
+              placeholder="e.g. Aerial Installation — Route 46 SB"
               required
             />
           </div>
@@ -125,22 +187,23 @@ export function SubmitProjectForm() {
             type="date"
             required
           />
-          <SelectField
-            label="Type of Plan"
-            name="type_of_plan"
-            options={[...PLAN_TYPE_OPTIONS]}
-            required
-          />
+          {/*
+            Job Type here is the client-visible work classification:
+            Aerial / Underground / Mixed / Other.
+            This maps to type_of_plan in the DB. The internal operational
+            job_type (TCP / SLD / Full Package) is set by admin after intake review.
+          */}
           <SelectField
             label="Job Type"
-            name="job_type"
-            options={[...JOB_TYPE_OPTIONS]}
+            name="type_of_plan"
+            options={PLAN_TYPE_OPTIONS}
             required
+            hint="The type of work being performed"
           />
         </div>
       </fieldset>
 
-      {/* ── Location ─────────────────────────────────────────── */}
+      {/* ── Location ──────────────────────────────────────────── */}
       <fieldset style={{ borderTop: "1px solid #e3e9ec" }} className="pt-8">
         <legend className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
           Location
@@ -157,22 +220,31 @@ export function SubmitProjectForm() {
           <SelectField
             label="Authority Type"
             name="authority_type"
-            options={[...AUTHORITY_TYPE_OPTIONS]}
+            options={AUTHORITY_TYPE_OPTIONS}
             required
             hint="The type of government body issuing the permit"
           />
-          <SelectField
+          <StateSelect />
+          <Field
             label="County"
             name="county"
-            options={[...NJ_COUNTIES]}
+            placeholder="e.g. Bergen"
+            hint="County where the work is located"
+          />
+          <Field
+            label="City / Municipality"
+            name="city"
+            placeholder="e.g. Lodi"
             required
           />
-          <Field label="City / Municipality" name="city" placeholder="e.g. Lodi" required />
-          <Field label="Township / Borough" name="township" placeholder="e.g. Lodi Borough" />
+          {/*
+            Township is removed from the client-facing form.
+            Admin can add jurisdiction detail during intake review if needed.
+          */}
         </div>
       </fieldset>
 
-      {/* ── Notes ────────────────────────────────────────────── */}
+      {/* ── Notes & Attachments ───────────────────────────────── */}
       <fieldset style={{ borderTop: "1px solid #e3e9ec" }} className="pt-8">
         <legend className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
           Notes &amp; Attachments
@@ -190,17 +262,17 @@ export function SubmitProjectForm() {
             />
           </div>
 
-          {/* Attachment upload — TODO: wire to Supabase Storage (file uploads are a later phase) */}
+          {/* Attachment upload — TODO: wire to Supabase Storage in a later phase */}
           <div>
             <label className="block text-xs font-medium text-dim mb-1.5">Attachments</label>
             <div
-              className="border-2 border-dashed rounded-xl px-6 py-10 text-center"
-              style={{ borderColor: "#d4dde4" }}
+              className="rounded-xl px-6 py-8 text-center bg-canvas"
+              style={{ border: "1.5px dashed #d4dde4" }}
             >
-              <p className="text-sm font-medium text-ink mb-1">File uploads coming soon</p>
+              <p className="text-sm font-medium text-dim mb-1">File attachments</p>
               <p className="text-xs text-muted">
                 Attachment upload will be available in a future update.
-                Submit your project now and attach files once available.
+                Submit your project now — attachments can be added by your FiberPro contact.
               </p>
             </div>
           </div>
@@ -214,7 +286,7 @@ export function SubmitProjectForm() {
         </div>
       )}
 
-      {/* Submit */}
+      {/* Actions */}
       <div
         className="flex items-center justify-between gap-4 pt-4"
         style={{ borderTop: "1px solid #e3e9ec" }}

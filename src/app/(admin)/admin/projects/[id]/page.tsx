@@ -4,8 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { ProjectStatusBadge, BillingStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { UploadSLDForm } from "@/components/admin/UploadSLDForm";
+import { AssignDesignerForm } from "@/components/admin/AssignDesignerForm";
+import { ApproveDesignForm, RequestRevisionsForm } from "@/components/admin/WorkflowActionForms";
 import { createClient } from "@/lib/supabase/server";
-import { getProjectDetail } from "@/lib/queries/projects";
+import { getProjectDetail, getDesigners } from "@/lib/queries/projects";
 import { formatDate, humanize } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Project" };
@@ -23,8 +26,10 @@ function FieldPair({ label, value }: { label: string; value?: string | null }) {
 
 function FileRow({
   file,
+  downloadUrl,
 }: {
   file: { id: string; file_name: string; created_at: string; uploader_label?: string | null };
+  downloadUrl?: string | null;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5">
@@ -40,8 +45,18 @@ function FileRow({
           </p>
         </div>
       </div>
-      {/* TODO: Wire to signed download URL from Supabase Storage */}
-      <button className="text-xs text-primary hover:underline flex-shrink-0">Download</button>
+      {downloadUrl ? (
+        <a
+          href={downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary hover:underline flex-shrink-0"
+        >
+          Download
+        </a>
+      ) : (
+        <span className="text-xs text-faint flex-shrink-0">—</span>
+      )}
     </div>
   );
 }
@@ -60,13 +75,17 @@ export default async function AdminProjectDetailPage({
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/sign-in");
 
-  const project = await getProjectDetail(supabase, id);
+  const [project, designers] = await Promise.all([
+    getProjectDetail(supabase, id),
+    getDesigners(supabase),
+  ]);
+
   if (!project) notFound();
 
   // Fetch project files
   const { data: filesData } = await supabase
     .from("project_files")
-    .select("id, file_name, file_category, created_at, uploaded_by")
+    .select("id, file_name, file_category, created_at, uploaded_by, uploader_label, storage_path")
     .eq("project_id", id)
     .order("created_at", { ascending: true });
 
@@ -74,7 +93,18 @@ export default async function AdminProjectDetailPage({
   const sldFiles = files.filter((f) => f.file_category === "sld_sheet");
   const tcpFiles = files.filter((f) => f.file_category === "tcp_pdf");
 
-  // Fetch TCD selections with library item details
+  // Generate signed download URLs (1 hour TTL)
+  const downloadUrls: Record<string, string> = {};
+  for (const file of files) {
+    const { data: urlData } = await supabase.storage
+      .from("project-files")
+      .createSignedUrl((file as { storage_path: string }).storage_path, 3600);
+    if (urlData?.signedUrl) {
+      downloadUrls[file.id] = urlData.signedUrl;
+    }
+  }
+
+  // Fetch TCD selections
   const { data: tcdData } = await supabase
     .from("project_tcd_selections")
     .select("id, sort_order, tcd_library ( code, description )")
@@ -98,10 +128,14 @@ export default async function AdminProjectDetailPage({
 
   const activity = activityData ?? [];
 
-  // Build designer initials for avatar
+  // Designer display
   const designerName = project.assigned_designer_name;
   const designerInitials = designerName
-    ? designerName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)
+    ? designerName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .slice(0, 2)
     : null;
 
   // Authority display
@@ -111,6 +145,8 @@ export default async function AdminProjectDetailPage({
     if (project.city) return project.city;
     return humanize(project.authority_type);
   })();
+
+  const inReview = project.status === "waiting_for_admin_review";
 
   return (
     <div className="h-full flex flex-col">
@@ -135,24 +171,15 @@ export default async function AdminProjectDetailPage({
           </div>
           <p className="text-xs text-muted mt-0.5">
             {project.company_name ?? "—"} · {authorityDisplay}
-            {project.county ? ` · ${project.county} County` : ""}
           </p>
         </div>
 
-        {/* Key actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-canvas text-dim hover:bg-wash hover:text-ink transition-colors">
-            Edit Details
-          </button>
-          {project.status === "waiting_for_admin_review" && (
-            <button
-              className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
-              style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-            >
-              Approve Design
-            </button>
-          )}
-        </div>
+        {/* Quick approve button in header when in review */}
+        {inReview && (
+          <div className="flex-shrink-0">
+            <ApproveDesignForm projectId={project.id} />
+          </div>
+        )}
       </div>
 
       {/* ── Two-column body ── */}
@@ -165,8 +192,7 @@ export default async function AdminProjectDetailPage({
             {/* 1. Core Intake Data */}
             <SectionCard
               title="Intake & Core Data"
-              description="Information submitted at project intake. Verified by admin before design assignment."
-              action={<button className="text-xs text-primary hover:underline">Edit</button>}
+              description="Information submitted at project intake."
             >
               <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
                 <FieldPair label="Job Number (Client)"   value={project.job_number_client} />
@@ -190,38 +216,46 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 2. SLD Files (admin uploads) */}
+            {/* 2. SLD Files */}
             <SectionCard
               title="SLD Sheets"
               description="Street-level diagrams uploaded by admin. Used by designer as reference."
-              action={
-                <button className="text-xs font-medium text-primary hover:underline">
-                  {/* TODO: Wire to Supabase Storage upload */}
-                  + Upload SLD
-                </button>
-              }
             >
-              {sldFiles.length === 0 ? (
-                <EmptyState
-                  title="No SLD sheets uploaded"
-                  description="Upload SLD sheets before assigning to a designer."
-                />
-              ) : (
-                <div className="divide-y divide-surface">
+              {sldFiles.length > 0 && (
+                <div className="divide-y divide-surface mb-5">
                   {sldFiles.map((f) => (
-                    <FileRow key={f.id} file={f} />
+                    <FileRow
+                      key={f.id}
+                      file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
+                      downloadUrl={downloadUrls[f.id]}
+                    />
                   ))}
                 </div>
               )}
+
+              {sldFiles.length === 0 && (
+                <div className="mb-5">
+                  <EmptyState
+                    title="No SLD sheets uploaded"
+                    description="Upload SLD sheets before assigning to a designer."
+                  />
+                </div>
+              )}
+
+              <div className="pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
+                <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">
+                  Upload SLD Sheet
+                </p>
+                <UploadSLDForm projectId={project.id} />
+              </div>
             </SectionCard>
 
-            {/* 3. TCD Selection (admin manual) */}
+            {/* 3. TCD Selection */}
             <SectionCard
               title="TCD Selection"
-              description="Admin selects the applicable TCD sheet(s) from the system library. Included in the permit package."
+              description="Admin selects applicable TCD sheets from the system library."
               action={
                 <button className="text-xs font-medium text-primary hover:underline">
-                  {/* TODO: Open TCD library modal */}
                   + Select from Library
                 </button>
               }
@@ -252,34 +286,35 @@ export default async function AdminProjectDetailPage({
               description="Assign a designer after SLD sheets are uploaded and TCD selection is complete."
             >
               {designerName ? (
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-                      <span className="text-[11px] font-semibold text-primary">{designerInitials}</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
+                        <span className="text-[11px] font-semibold text-primary">{designerInitials}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-ink">{designerName}</p>
+                        <p className="text-xs text-muted">Assigned {formatDate(project.assigned_at)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-ink">{designerName}</p>
-                      <p className="text-xs text-muted">Assigned {formatDate(project.assigned_at)}</p>
-                    </div>
+                    <span className="text-xs text-muted">Reassign:</span>
                   </div>
-                  <button className="text-xs text-muted hover:text-primary transition-colors">
-                    Reassign
-                  </button>
+                  <AssignDesignerForm
+                    projectId={project.id}
+                    designers={designers}
+                    currentDesignerId={project.assigned_designer_id}
+                  />
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm text-dim">No designer assigned yet.</p>
-                  <button
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
-                    style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-                  >
-                    + Assign Designer
-                  </button>
-                </div>
+                <AssignDesignerForm
+                  projectId={project.id}
+                  designers={designers}
+                  currentDesignerId={null}
+                />
               )}
             </SectionCard>
 
-            {/* 5. TCP Design (designer uploads) */}
+            {/* 5. TCP Design Files */}
             <SectionCard
               title="TCP Design Files"
               description="Traffic Control Plan sheets uploaded by the assigned designer."
@@ -293,7 +328,11 @@ export default async function AdminProjectDetailPage({
                 ) : (
                   <div className="divide-y divide-surface">
                     {tcpFiles.map((f) => (
-                      <FileRow key={f.id} file={f} />
+                      <FileRow
+                        key={f.id}
+                        file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
+                        downloadUrl={downloadUrls[f.id]}
+                      />
                     ))}
                   </div>
                 )
@@ -310,7 +349,7 @@ export default async function AdminProjectDetailPage({
               title="Admin Review & Approval"
               description="Review TCP sheets above, then approve the design or request revisions."
             >
-              {project.status === "waiting_for_admin_review" ? (
+              {inReview ? (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 bg-violet-50 rounded-lg px-4 py-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 flex-shrink-0" />
@@ -323,16 +362,16 @@ export default async function AdminProjectDetailPage({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button className="px-4 py-2 rounded-lg text-xs font-medium bg-canvas text-dim hover:bg-wash hover:text-ink transition-colors">
-                      Request Revisions
-                    </button>
-                    <button
-                      className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-colors"
-                      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-                    >
-                      Approve Design
-                    </button>
+                  <div className="flex items-start gap-6">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-muted uppercase tracking-wider mb-2">
+                        Request Revisions
+                      </p>
+                      <RequestRevisionsForm projectId={project.id} />
+                    </div>
+                    <div className="pt-5">
+                      <ApproveDesignForm projectId={project.id} />
+                    </div>
                   </div>
                 </div>
               ) : project.status === "revisions_required" ? (
@@ -362,7 +401,7 @@ export default async function AdminProjectDetailPage({
             {/* 7. Permit Package Generation */}
             <SectionCard
               title="Permit Package"
-              description="Assembled from: cover sheet + TCP sheets + SLD sheets + selected TCD sheets. Generated as an async workflow job."
+              description="Generated from: cover sheet + TCP sheets + SLD sheets + selected TCD sheets."
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -372,7 +411,7 @@ export default async function AdminProjectDetailPage({
                       : "Package generation requires: SLD sheets · TCD selection · TCP sheets · Admin approval."}
                   </p>
                   <p className="text-xs text-muted mt-1">
-                    Generation runs as a background job via n8n. The page will reflect completion when the job reports back.
+                    Generation runs as a background job via n8n.
                   </p>
                 </div>
                 <button
@@ -382,7 +421,6 @@ export default async function AdminProjectDetailPage({
                   Generate Package
                 </button>
               </div>
-              {/* TODO: Show workflow_jobs status if package_generating */}
             </SectionCard>
 
             {/* 8. Submission & Permit Tracking */}
@@ -405,13 +443,10 @@ export default async function AdminProjectDetailPage({
                       <p className="text-sm text-ink">{project.permit_notes}</p>
                     </div>
                   )}
-                  <button className="text-xs text-primary hover:underline">
-                    Update Submission Details
-                  </button>
                 </div>
               ) : (
                 <p className="text-sm text-muted">
-                  Submission tracking becomes available after the permit package is generated and ready for submission.
+                  Available after the permit package is generated and ready for submission.
                 </p>
               )}
             </SectionCard>
@@ -446,7 +481,6 @@ export default async function AdminProjectDetailPage({
                   <BillingStatusBadge status={project.billing_status} />
                   <button className="text-xs text-muted hover:text-primary transition-colors">Manage</button>
                 </div>
-                <p className="text-xs text-muted mt-2">Invoice eligible after package is generated.</p>
               </div>
 
               {/* Files summary */}
@@ -490,16 +524,15 @@ export default async function AdminProjectDetailPage({
                   </div>
                 )}
 
-                {/* Comment input */}
+                {/* Comment area */}
                 <div className="mt-4 pt-3" style={{ borderTop: "1px solid #e3e9ec" }}>
                   <p className="text-xs text-muted mb-2">Add comment</p>
                   <textarea
                     rows={2}
                     className="w-full text-xs text-ink bg-card rounded-lg px-2.5 py-2 resize-none outline-none"
                     style={{ border: "1px solid #d4dde4" }}
-                    placeholder="Leave a note..."
+                    placeholder="Leave a note…"
                   />
-                  {/* TODO: Wire comment submission to project_messages table in next phase */}
                 </div>
               </div>
             </div>

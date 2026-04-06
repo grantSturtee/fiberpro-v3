@@ -35,55 +35,91 @@ export default async function CompanyDashboardPage() {
     getCompanyProjectList(supabase, companyId),
   ]);
 
+  // ── Stats ──────────────────────────────────────────────────────────────────
   const active = projects.filter((p) => ACTIVE_STATUSES.includes(p.status)).length;
+  const awaitingPermit = projects.filter((p) =>
+    ["submitted", "waiting_on_authority", "authority_action_needed"].includes(p.status)
+  ).length;
+  const completed = projects.filter((p) =>
+    ["permit_received", "closed"].includes(p.status)
+  ).length;
+
   const recent = projects.slice(0, 6);
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
 
-      {/* Welcome bar */}
-      <div className="flex items-center justify-between gap-4">
+      {/* ── Page header ── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">{company?.name ?? "Your Company"}</h1>
+          <h1 className="text-xl font-semibold text-ink">
+            {company?.name ?? "Project Portal"}
+          </h1>
           <p className="mt-0.5 text-sm text-muted">
-            {active} active project{active !== 1 ? "s" : ""}
+            Manage and track your permit projects.
           </p>
         </div>
         <Link
           href="/company/submit"
-          className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0"
+          className="flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
           style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
         >
           + Submit Project
         </Link>
       </div>
 
-      {/* Project list */}
+      {/* ── Stats row ── */}
+      {projects.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          <StatCard
+            label="Active"
+            value={active}
+            description="In progress"
+            href="/company/projects"
+          />
+          <StatCard
+            label="Awaiting Permit"
+            value={awaitingPermit}
+            description="Submitted to authority"
+            href="/company/projects"
+          />
+          <StatCard
+            label="Completed"
+            value={completed}
+            description="Permit received or closed"
+            href="/company/projects"
+          />
+        </div>
+      )}
+
+      {/* ── Recent projects ── */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold text-muted uppercase tracking-wider">
             Recent Projects
           </h2>
-          <Link href="/company/projects" className="text-xs text-primary hover:underline">
-            View all
-          </Link>
+          {projects.length > 0 && (
+            <Link href="/company/projects" className="text-xs text-primary hover:underline">
+              View all {projects.length}
+            </Link>
+          )}
         </div>
 
         {recent.length === 0 ? (
           <div
-            className="bg-card rounded-xl px-6 py-12 text-center"
+            className="bg-card rounded-xl px-8 py-14 text-center"
             style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
           >
-            <p className="text-sm font-medium text-ink mb-1">No projects yet</p>
-            <p className="text-xs text-muted mb-4">
-              Submit your first project to get started.
+            <p className="text-sm font-semibold text-ink mb-1">No projects yet</p>
+            <p className="text-sm text-muted mb-5">
+              Submit your first project to get started with the permitting process.
             </p>
             <Link
               href="/company/submit"
-              className="inline-block px-4 py-2 rounded-lg text-xs font-semibold text-white"
+              className="inline-block px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
               style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
             >
-              Submit Project
+              Submit a Project
             </Link>
           </div>
         ) : (
@@ -122,5 +158,33 @@ export default async function CompanyDashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// ── Stat card ─────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  description,
+  href,
+}: {
+  label: string;
+  value: number;
+  description: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="bg-card rounded-xl px-5 py-4 hover:bg-surface transition-colors group"
+      style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
+    >
+      <p className="text-2xl font-semibold text-ink group-hover:text-primary transition-colors">
+        {value}
+      </p>
+      <p className="text-sm font-medium text-dim mt-0.5">{label}</p>
+      <p className="text-xs text-muted mt-0.5">{description}</p>
+    </Link>
   );
 }
