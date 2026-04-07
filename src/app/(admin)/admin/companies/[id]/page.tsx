@@ -19,7 +19,7 @@ export default async function AdminCompanyDetailPage({ params }: Props) {
     supabase.from("companies").select("id, name, billing_email, notes, created_at").eq("id", id).single(),
     supabase
       .from("company_memberships")
-      .select("id, role, user_id, user_profiles ( display_name, email )")
+      .select("id, role, user_id")
       .eq("company_id", id)
       .order("created_at"),
     supabase
@@ -90,9 +90,9 @@ export default async function AdminCompanyDetailPage({ params }: Props) {
             {members.map((m) => (
               <div key={m.id} className="grid grid-cols-[2fr_2fr_1fr] gap-4 px-6 py-3 items-center">
                 <p className="text-sm font-medium text-ink truncate">
-                {m.user_profiles?.[0]?.display_name ?? "—"}
+                {m.user_id}
                 </p>
-                <p className="text-sm text-dim truncate">{m.user_profiles?.[0]?.email ?? "—"}</p>
+                <p className="text-sm text-dim truncate">{"—"}</p>
                 <p className="text-xs text-muted capitalize">
                   {m.role.replace("_", " ")}
                 </p>
