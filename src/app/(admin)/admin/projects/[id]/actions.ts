@@ -124,7 +124,7 @@ export async function uploadSLD(
   const storage = createServiceClient();
   const { error: uploadError } = await storage.storage
     .from("project-files")
-    .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
 
   if (uploadError) {
     console.error("SLD upload error:", uploadError.message, uploadError);
@@ -143,6 +143,7 @@ export async function uploadSLD(
     file_name: file.name,
     storage_path: storagePath,
     file_size_bytes: file.size,
+    mime_type: file.type,
   });
 
   if (dbError) {

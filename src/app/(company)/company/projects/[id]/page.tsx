@@ -10,8 +10,10 @@ import {
   getProjectDetail,
 } from "@/lib/queries/projects";
 import { formatDate, humanize } from "@/lib/utils/format";
-import { FILE_CATEGORY_LABELS, CLIENT_FILE_CATEGORIES } from "@/lib/constants/files";
+import { FILE_CATEGORY_LABELS, CLIENT_FILE_CATEGORIES, isBrowserViewable } from "@/lib/constants/files";
 import { UploadIntakeFileForm } from "@/components/company/UploadIntakeFileForm";
+import { FileDownloadLink } from "@/components/ui/FileDownloadLink";
+import { FileTypeBadge } from "@/components/ui/FileTypeBadge";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -61,20 +63,25 @@ export default async function CompanyProjectDetailPage({
   const serviceClient = createServiceClient();
   const { data: intakeFilesData } = await serviceClient
     .from("project_files")
-    .select("id, file_name, file_category, file_size_bytes, storage_path, created_at")
+    .select("id, file_name, file_category, file_size_bytes, storage_path, created_at, mime_type")
     .eq("project_id", id)
     .in("file_category", CLIENT_FILE_CATEGORIES)
     .order("created_at", { ascending: false });
 
   const intakeFiles = intakeFilesData ?? [];
 
-  // Generate signed URLs for each file
+  // Generate signed URLs for each file — view URL (plain) + download URL (forced attachment).
   const intakeFilesWithUrls = await Promise.all(
     intakeFiles.map(async (f) => {
-      const { data: signed } = await serviceClient.storage
-        .from("project-files")
-        .createSignedUrl(f.storage_path, 3600);
-      return { ...f, signedUrl: signed?.signedUrl ?? null };
+      const [{ data: viewSigned }, { data: dlSigned }] = await Promise.all([
+        serviceClient.storage.from("project-files").createSignedUrl(f.storage_path, 3600),
+        serviceClient.storage.from("project-files").createSignedUrl(f.storage_path, 3600, { download: true }),
+      ]);
+      return {
+        ...f,
+        viewUrl: viewSigned?.signedUrl ?? null,
+        downloadUrl: dlSigned?.signedUrl ?? null,
+      };
     })
   );
 
@@ -158,34 +165,44 @@ export default async function CompanyProjectDetailPage({
             <div className="divide-y divide-surface">
               {intakeFilesWithUrls.map((f) => (
                 <div key={f.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="text-sm text-ink truncate">{f.file_name}</p>
-                    <p className="text-[11px] text-muted mt-0.5">
-                      {FILE_CATEGORY_LABELS[f.file_category as keyof typeof FILE_CATEGORY_LABELS] ?? f.file_category}
-                      {f.file_size_bytes
-                        ? ` · ${(f.file_size_bytes / 1048576).toFixed(1)} MB`
-                        : ""}
-                      {" · "}
-                      {formatDate(f.created_at)}
-                    </p>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileTypeBadge fileName={f.file_name} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink truncate">{f.file_name}</p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        {FILE_CATEGORY_LABELS[f.file_category as keyof typeof FILE_CATEGORY_LABELS] ?? f.file_category}
+                        {f.file_size_bytes
+                          ? ` · ${(f.file_size_bytes / 1048576).toFixed(1)} MB`
+                          : ""}
+                        {" · "}
+                        {formatDate(f.created_at)}
+                      </p>
+                    </div>
                   </div>
-                  {f.signedUrl && (
-                    <a
-                      href={f.signedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex-shrink-0"
-                    >
-                      View
-                    </a>
-                  )}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {isBrowserViewable(f.mime_type) && f.viewUrl ? (
+                      <a
+                        href={f.viewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        View
+                      </a>
+                    ) : (
+                      <span className="text-xs text-faint" title="This file type cannot be previewed in the browser">
+                        View
+                      </span>
+                    )}
+                    {f.downloadUrl && <FileDownloadLink href={f.downloadUrl} />}
+                  </div>
                 </div>
               ))}
             </div>
           )}
           <div className="pt-1">
             <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">
-              Upload a file (PDF, max 50 MB)
+              Upload a file (PDF, PNG, JPEG, WebP, GIF, ZIP, DWG, DXF · max 50 MB)
             </p>
             <UploadIntakeFileForm projectId={project.id} />
           </div>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { INTAKE_ALLOWED_MIME_TYPES, INTAKE_ALLOWED_EXTENSIONS } from "@/lib/constants/files";
 
 export type CompanyFileActionState = {
   error: string | null;
@@ -29,7 +30,10 @@ export async function uploadIntakeFile(
 
   if (!projectId) return { error: "Missing project ID." };
   if (!file || file.size === 0) return { error: "Please select a file to upload." };
-  if (file.type !== "application/pdf") return { error: "Only PDF files are accepted." };
+  const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!INTAKE_ALLOWED_MIME_TYPES.has(file.type) && !INTAKE_ALLOWED_EXTENSIONS.has(fileExt)) {
+    return { error: "Unsupported file type. Accepted: PDF, PNG, JPEG, WebP, GIF, ZIP, DWG, DXF." };
+  }
   if (file.size > 52428800) return { error: "File exceeds 50 MB limit." };
 
   const userId = userData.user.id;
@@ -67,7 +71,7 @@ export async function uploadIntakeFile(
 
   const { error: uploadError } = await serviceClient.storage
     .from("project-files")
-    .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
 
   if (uploadError) {
     console.error("Intake file upload error:", uploadError.message, uploadError);
@@ -83,6 +87,7 @@ export async function uploadIntakeFile(
     file_name: file.name,
     storage_path: storagePath,
     file_size_bytes: file.size,
+    mime_type: file.type,
   });
 
   if (dbError) {

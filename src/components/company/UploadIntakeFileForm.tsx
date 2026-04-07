@@ -6,6 +6,7 @@ import {
   uploadIntakeFile,
   type CompanyFileActionState,
 } from "@/app/(company)/company/projects/[id]/actions";
+import { INTAKE_ACCEPT_ATTR } from "@/lib/constants/files";
 
 const initialState: CompanyFileActionState = { error: null };
 
@@ -47,7 +48,7 @@ export function UploadIntakeFileForm({ projectId }: { projectId: string }) {
       <input
         type="file"
         name="file"
-        accept="application/pdf"
+        accept={INTAKE_ACCEPT_ATTR}
         required
         className="text-xs text-dim file:mr-2 file:px-2.5 file:py-1 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-surface file:text-ink hover:file:bg-[#e3e9ec] transition-colors"
       />

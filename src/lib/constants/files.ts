@@ -146,6 +146,101 @@ export function categoryToFileType(category: FileCategoryValue): FileType {
   }
 }
 
+// ── File type display label ───────────────────────────────────────────────────
+//
+// Derives a compact uppercase label from the file's extension for use in
+// file row badges. Prefer extension over mime_type so the label matches what
+// the user sees in the filename (e.g. "JPG" not "IMAGE/JPEG").
+
+export function getFileTypeLabel(fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "pdf":  return "PDF";
+    case "png":  return "PNG";
+    case "jpg":  return "JPG";
+    case "jpeg": return "JPEG";
+    case "webp": return "WEBP";
+    case "gif":  return "GIF";
+    case "svg":  return "SVG";
+    case "zip":  return "ZIP";
+    case "dwg":  return "DWG";
+    case "dxf":  return "DXF";
+    default:     return "FILE";
+  }
+}
+
+// ── Allowed intake upload types (company-side) ────────────────────────────────
+//
+// Validation uses MIME OR extension — pass if either matches.
+// This is required because CAD file MIME types (dwg, dxf) are inconsistently
+// reported across browsers/OS and cannot be reliably validated by MIME alone.
+// application/octet-stream is intentionally excluded.
+//
+// To expand: add to both sets as appropriate, and add the extension to INTAKE_ACCEPT_ATTR.
+
+export const INTAKE_ALLOWED_MIME_TYPES = new Set([
+  // Standard browser-friendly formats
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  // ZIP — two variants seen across browsers
+  "application/zip",
+  "application/x-zip-compressed",
+  // DWG — known variants; extension is the real gate (see INTAKE_ALLOWED_EXTENSIONS)
+  "application/acad",
+  "application/x-acad",
+  "application/autocad_dwg",
+  "application/dwg",
+  "application/x-dwg",
+  "image/x-dwg",
+  // DXF — known variants; extension is the real gate (see INTAKE_ALLOWED_EXTENSIONS)
+  "application/dxf",
+  "image/vnd.dxf",
+  "application/x-dxf",
+]);
+
+export const INTAKE_ALLOWED_EXTENSIONS = new Set([
+  "pdf", "png", "jpg", "jpeg", "webp", "gif",
+  "zip",
+  "dwg", "dxf",
+]);
+
+/** Comma-separated value for <input accept="..."> */
+export const INTAKE_ACCEPT_ATTR = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/zip",
+  ".zip",
+  ".dwg",
+  ".dxf",
+].join(",");
+
+// ── Browser-viewable MIME types ───────────────────────────────────────────────
+//
+// Used to gate the View action on file rows.
+// Types not in this set get a disabled View button and download-only behavior.
+
+export const BROWSER_VIEWABLE_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "text/plain",
+  "text/csv",
+  "application/json",
+]);
+
+export function isBrowserViewable(mimeType: string | null | undefined): boolean {
+  return !!mimeType && BROWSER_VIEWABLE_MIME_TYPES.has(mimeType);
+}
+
 /** Human-readable labels for each category. */
 export const FILE_CATEGORY_LABELS: Record<FileCategoryValue, string> = {
   intake_attachment: "Intake Attachment",

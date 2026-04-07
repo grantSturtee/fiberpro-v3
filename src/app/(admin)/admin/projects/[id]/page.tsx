@@ -19,7 +19,9 @@ import { EditIntakeForm } from "@/components/admin/EditIntakeForm";
 import { getLatestJob } from "@/lib/workflow/enqueue";
 import { JOB_STATUS_LABEL, JOB_STATUS_COLOR, type WorkflowJobStatus } from "@/types/workflow";
 import { formatDate, formatDateTime, humanize } from "@/lib/utils/format";
-import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES, FILE_CATEGORY_LABELS, GENERATED_FILE_CATEGORIES } from "@/lib/constants/files";
+import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES, FILE_CATEGORY_LABELS, GENERATED_FILE_CATEGORIES, isBrowserViewable } from "@/lib/constants/files";
+import { FileDownloadLink } from "@/components/ui/FileDownloadLink";
+import { FileTypeBadge } from "@/components/ui/FileTypeBadge";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -54,9 +56,7 @@ function FileRow({
   return (
     <div className="flex items-center justify-between gap-4 py-2.5">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
-          <span className="text-[9px] font-bold text-red-600 tracking-tight">PDF</span>
-        </div>
+        <FileTypeBadge fileName={file.file_name} />
         <div className="min-w-0">
           <p className="text-sm text-ink truncate">{file.file_name}</p>
           <p className="text-xs text-muted">
@@ -72,7 +72,7 @@ function FileRow({
           rel="noopener noreferrer"
           className="text-xs text-primary hover:underline flex-shrink-0"
         >
-          Download
+          View
         </a>
       ) : (
         <span className="text-xs text-faint flex-shrink-0">—</span>
@@ -299,7 +299,7 @@ export default async function AdminProjectDetailPage({
   // Fetch project files
   const { data: filesData } = await supabase
     .from("project_files")
-    .select("id, file_name, file_category, created_at, uploaded_by, uploader_label, storage_path")
+    .select("id, file_name, file_category, created_at, uploaded_by, uploader_label, storage_path, mime_type")
     .eq("project_id", id)
     .order("created_at", { ascending: true });
 
@@ -328,6 +328,19 @@ export default async function AdminProjectDetailPage({
       .createSignedUrl((file as { storage_path: string }).storage_path, 3600);
     if (urlData?.signedUrl) {
       downloadUrls[file.id] = urlData.signedUrl;
+    }
+  }
+
+  // Download-mode signed URLs for client intake files only.
+  // These append &download= so the browser receives Content-Disposition: attachment.
+  // Other file zones (SLD, TCP, generated) are not in scope for this change.
+  const intakeDownloadUrls: Record<string, string> = {};
+  for (const file of intakeFiles) {
+    const { data: dlData } = await storageClient.storage
+      .from("project-files")
+      .createSignedUrl((file as { storage_path: string }).storage_path, 3600, { download: true });
+    if (dlData?.signedUrl) {
+      intakeDownloadUrls[file.id] = dlData.signedUrl;
     }
   }
 
@@ -467,9 +480,7 @@ export default async function AdminProjectDetailPage({
                   {intakeFiles.map((f) => (
                     <div key={f.id} className="flex items-center justify-between gap-4 py-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[9px] font-bold text-red-600 tracking-tight">PDF</span>
-                        </div>
+                        <FileTypeBadge fileName={f.file_name} />
                         <div className="min-w-0">
                           <p className="text-sm text-ink truncate">{f.file_name}</p>
                           <p className="text-xs text-muted">
@@ -480,18 +491,25 @@ export default async function AdminProjectDetailPage({
                           </p>
                         </div>
                       </div>
-                      {downloadUrls[f.id] ? (
-                        <a
-                          href={downloadUrls[f.id]}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline flex-shrink-0"
-                        >
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-xs text-faint flex-shrink-0">—</span>
-                      )}
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {isBrowserViewable((f as { mime_type?: string | null }).mime_type) && downloadUrls[f.id] ? (
+                          <a
+                            href={downloadUrls[f.id]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-xs text-faint" title="This file type cannot be previewed in the browser">
+                            View
+                          </span>
+                        )}
+                        {intakeDownloadUrls[f.id] && (
+                          <FileDownloadLink href={intakeDownloadUrls[f.id]} />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

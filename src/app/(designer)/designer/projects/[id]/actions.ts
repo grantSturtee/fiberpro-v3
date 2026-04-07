@@ -71,7 +71,7 @@ export async function uploadTCP(
   const storage = createServiceClient();
   const { error: uploadError } = await storage.storage
     .from("project-files")
-    .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
 
   if (uploadError) {
     console.error("TCP upload error:", uploadError.message, uploadError);
@@ -90,6 +90,7 @@ export async function uploadTCP(
     file_name: file.name,
     storage_path: storagePath,
     file_size_bytes: file.size,
+    mime_type: file.type,
   });
 
   if (dbError) {
