@@ -36,7 +36,7 @@ export default async function AdminCompanyDetailPage({ params }: Props) {
     id: string;
     role: string;
     user_id: string;
-    user_profiles: { display_name: string; email: string } | null;
+    user_profiles: { display_name: string; email: string }[] | null;
   };
 
   const members = (membersData ?? []) as MemberRow[];
@@ -90,9 +90,9 @@ export default async function AdminCompanyDetailPage({ params }: Props) {
             {members.map((m) => (
               <div key={m.id} className="grid grid-cols-[2fr_2fr_1fr] gap-4 px-6 py-3 items-center">
                 <p className="text-sm font-medium text-ink truncate">
-                  {m.user_profiles?.display_name ?? "—"}
+                {m.user_profiles?.[0]?.display_name ?? "—"}
                 </p>
-                <p className="text-sm text-dim truncate">{m.user_profiles?.email ?? "—"}</p>
+                <p className="text-sm text-dim truncate">{m.user_profiles?.[0]?.email ?? "—"}</p>
                 <p className="text-xs text-muted capitalize">
                   {m.role.replace("_", " ")}
                 </p>

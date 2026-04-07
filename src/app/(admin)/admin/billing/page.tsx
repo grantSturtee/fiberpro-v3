@@ -29,7 +29,7 @@ export default async function AdminBillingPage() {
     job_name: string;
     status: ProjectStatus;
     billing_status: BillingStatus;
-    companies: { name: string };
+    companies: { name: string }[] | null;
   };
 
   const rows = (projectsData ?? []) as Row[];
@@ -110,7 +110,7 @@ export default async function AdminBillingPage() {
                   </p>
                   <p className="text-xs text-muted font-mono">{row.job_number}</p>
                 </div>
-                <p className="text-sm text-dim truncate">{row.companies?.name ?? "—"}</p>
+                <p className="text-sm text-dim truncate">{row.companies?.[0]?.name ?? "—"}</p>
                 <ProjectStatusBadge status={row.status} />
                 <BillingStatusBadge status={row.billing_status} />
               </Link>
