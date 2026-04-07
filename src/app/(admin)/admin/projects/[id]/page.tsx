@@ -10,6 +10,7 @@ import { ApproveDesignForm, RequestRevisionsForm } from "@/components/admin/Work
 import { createClient } from "@/lib/supabase/server";
 import { getProjectDetail, getDesigners } from "@/lib/queries/projects";
 import { formatDate, humanize } from "@/lib/utils/format";
+import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES } from "@/lib/constants/files";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -90,11 +91,14 @@ export default async function AdminProjectDetailPage({
     .order("created_at", { ascending: true });
 
   const files = filesData ?? [];
+  // Zone: CLIENT — intake-submitted files, read-only reference for admin
   const intakeFiles = files.filter((f) =>
-    ["intake_attachment", "client_reference", "source_map"].includes(f.file_category as string)
+    (CLIENT_FILE_CATEGORIES as readonly string[]).includes(f.file_category as string)
   );
-  const sldFiles = files.filter((f) => f.file_category === "sld_sheet");
-  const tcpFiles = files.filter((f) => f.file_category === "tcp_pdf");
+  // Zone: ADMIN — SLD reference sheets uploaded by admin
+  const sldFiles = files.filter((f) => f.file_category === FILE_CATEGORIES.SLD_SHEET);
+  // Zone: DESIGNER — TCP sheets produced by the assigned designer
+  const tcpFiles = files.filter((f) => f.file_category === FILE_CATEGORIES.TCP_PDF);
 
   // Generate signed download URLs (1 hour TTL)
   const downloadUrls: Record<string, string> = {};

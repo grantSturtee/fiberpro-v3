@@ -7,20 +7,30 @@ import { TcdDeactivateButton } from "@/components/admin/settings/TcdDeactivateBu
 
 export const metadata: Metadata = { title: "TCD Library" };
 
-export default async function AdminTcdLibraryPage() {
+const TCD_CATEGORIES = ["shoulder", "lane", "highway", "ramp", "intersection", "other"] as const;
+
+type PageProps = {
+  searchParams: Promise<{ state?: string; category?: string }>;
+};
+
+export default async function AdminTcdLibraryPage({ searchParams }: PageProps) {
+  const { state: filterState, category: filterCategory } = await searchParams;
   const supabase = await createClient();
 
-  const { data } = await supabase
+  let query = supabase
     .from("tcd_library")
-    .select("id, code, title, description, category, state, storage_path, sort_order, is_active")
-    .order("sort_order")
+    .select("id, code, description, category, state, storage_path, is_active")
     .order("code");
 
+  if (filterState) query = query.eq("state", filterState);
+  if (filterCategory) query = query.eq("category", filterCategory);
+
+  const { data } = await query;
   const items = data ?? [];
   const active = items.filter((i) => i.is_active);
   const inactive = items.filter((i) => !i.is_active);
 
-  // Group active items by category
+  // Group active items by category for display
   const byCategory: Record<string, typeof active> = {};
   for (const item of active) {
     const cat = item.category ?? "Uncategorized";
@@ -28,6 +38,8 @@ export default async function AdminTcdLibraryPage() {
     byCategory[cat].push(item);
   }
   const categories = Object.keys(byCategory).sort();
+
+  const hasFilter = !!filterState || !!filterCategory;
 
   return (
     <div className="p-8 space-y-6 max-w-4xl mx-auto">
@@ -41,8 +53,51 @@ export default async function AdminTcdLibraryPage() {
         <h1 className="text-xl font-semibold text-ink">TCD Sheet Library</h1>
         <p className="mt-0.5 text-sm text-muted">
           {active.length} active sheet{active.length !== 1 ? "s" : ""}
+          {hasFilter && " (filtered)"}
         </p>
       </div>
+
+      {/* Filters */}
+      <form method="GET" className="flex items-center gap-3 flex-wrap">
+        <select
+          name="state"
+          defaultValue={filterState ?? ""}
+          className="bg-surface rounded-lg px-3 py-2 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
+          style={{ border: "1px solid #d4dde4" }}
+        >
+          <option value="">All States</option>
+          {/* Common states for NJ-focused operation + catch-all */}
+          {["NJ", "NY", "PA", "CT", "DE", "MD", "MA"].map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select
+          name="category"
+          defaultValue={filterCategory ?? ""}
+          className="bg-surface rounded-lg px-3 py-2 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
+          style={{ border: "1px solid #d4dde4" }}
+        >
+          <option value="">All Categories</option>
+          {TCD_CATEGORIES.map((c) => (
+            <option key={c} value={c} className="capitalize">{c}</option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="px-3 py-2 rounded-lg text-sm font-medium bg-surface text-dim hover:text-ink transition-colors"
+          style={{ border: "1px solid #d4dde4" }}
+        >
+          Filter
+        </button>
+        {hasFilter && (
+          <Link
+            href="/admin/settings/tcd"
+            className="text-xs text-muted hover:text-dim transition-colors"
+          >
+            Clear
+          </Link>
+        )}
+      </form>
 
       {/* Active items */}
       {active.length > 0 && (
@@ -59,17 +114,14 @@ export default async function AdminTcdLibraryPage() {
                   <div key={item.id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{item.code}</span>
-                        {item.title && (
-                          <span className="text-sm text-dim">{item.title}</span>
-                        )}
+                        <span className="text-sm font-semibold text-ink font-mono">{item.code}</span>
                         {item.state && (
-                          <span className="text-[11px] text-muted bg-surface rounded px-1.5 py-0.5">
+                          <span className="text-[10px] font-medium text-muted bg-surface rounded px-1.5 py-0.5 border border-rule">
                             {item.state}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                      <p className="text-xs text-muted mt-0.5 leading-relaxed">{item.description}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {item.storage_path ? (
@@ -98,7 +150,14 @@ export default async function AdminTcdLibraryPage() {
           className="bg-card rounded-xl px-6 py-12 text-center"
           style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
         >
-          <p className="text-sm text-muted">No active TCD sheets. Add the first one below.</p>
+          <p className="text-sm text-muted">
+            {hasFilter ? "No sheets match the current filter." : "No active TCD sheets. Add the first one below."}
+          </p>
+          {hasFilter && (
+            <Link href="/admin/settings/tcd" className="mt-2 inline-block text-xs text-primary hover:underline">
+              Clear filters
+            </Link>
+          )}
         </div>
       )}
 
@@ -121,6 +180,7 @@ export default async function AdminTcdLibraryPage() {
               <div key={item.id} className="flex items-center gap-4 px-5 py-3 border-b border-surface last:border-0 opacity-50">
                 <span className="text-sm font-mono text-muted">{item.code}</span>
                 <span className="text-xs text-muted flex-1 truncate">{item.description}</span>
+                {item.state && <span className="text-xs text-faint">{item.state}</span>}
               </div>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
@@ -48,11 +49,12 @@ export default async function AdminUsersPage() {
         style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
       >
         {/* Table header */}
-        <div className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-4 px-5 py-3 bg-canvas">
+        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-canvas">
           <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Name</span>
           <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Email</span>
           <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Role</span>
           <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Active Jobs</span>
+          <span />
         </div>
 
         {users.length === 0 ? (
@@ -73,7 +75,7 @@ export default async function AdminUsersPage() {
               return (
                 <div
                   key={u.id}
-                  className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-4 px-5 py-4 items-center"
+                  className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 px-5 py-4 items-center"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
@@ -90,6 +92,12 @@ export default async function AdminUsersPage() {
                   <span className="text-sm font-medium text-ink">
                     {u.role === "designer" ? (activeMap[u.id] ?? 0) : "—"}
                   </span>
+                  <Link
+                    href={`/admin/users/${u.id}/edit`}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Edit
+                  </Link>
                 </div>
               );
             })}

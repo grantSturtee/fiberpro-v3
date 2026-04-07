@@ -8,6 +8,26 @@ const initialState: SettingsActionState = { error: null };
 
 const TCD_CATEGORIES = ["shoulder", "lane", "highway", "ramp", "intersection", "other"] as const;
 
+const US_STATES = [
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
+  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "DC", name: "DC" },
+  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
+  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
+  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
+  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
+  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
+  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
+  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
+  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
+  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
+  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
+  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
+] as const;
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -33,6 +53,10 @@ export function TcdAddForm() {
     );
   }
 
+  const inputCls = "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20";
+  const selectCls = "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer";
+  const borderStyle = { border: "1px solid #d4dde4" };
+
   return (
     <form className="space-y-4" action={formAction} encType="multipart/form-data">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -41,45 +65,32 @@ export function TcdAddForm() {
             Code<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input name="code" type="text" required placeholder="e.g. TCD-3"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-dim mb-1.5">Title</label>
-          <input name="title" type="text" placeholder="Short title (optional)"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }} />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-dim mb-1.5">
-            Description<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <input name="description" type="text" required placeholder="e.g. 2-lane road, shoulder closure, no flaggers"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }} />
+            className={inputCls} style={borderStyle} />
         </div>
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5">Category</label>
-          <select name="category"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            style={{ border: "1px solid #d4dde4" }}>
+          <select name="category" className={selectCls} style={borderStyle}>
             <option value="">Select…</option>
             {TCD_CATEGORIES.map((c) => (
               <option key={c} value={c} className="capitalize">{c}</option>
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-dim mb-1.5">State</label>
-          <input name="state" type="text" placeholder="e.g. NJ" maxLength={2}
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }} />
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-dim mb-1.5">
+            Description<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input name="description" type="text" required placeholder="e.g. 2-lane road, shoulder closure, no flaggers"
+            className={inputCls} style={borderStyle} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-dim mb-1.5">Sort Order</label>
-          <input name="sort_order" type="number" placeholder="0" defaultValue="0" min="0"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }} />
+          <label className="block text-xs font-medium text-dim mb-1.5">State</label>
+          <select name="state" className={selectCls} style={borderStyle}>
+            <option value="">Any / All States</option>
+            {US_STATES.map((s) => (
+              <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5">PDF File</label>

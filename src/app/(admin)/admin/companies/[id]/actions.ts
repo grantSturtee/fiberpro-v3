@@ -68,16 +68,23 @@ export async function addCompanyUser(
 
   const newUserId = newUser.user.id;
 
-  // Upsert user_profiles
-  const { error: profileError } = await serviceClient.from("user_profiles").upsert({
-    id: newUserId,
-    role,
-    display_name: displayName,
-    email,
-  });
+  // Upsert user_profiles.
+  // Explicit onConflict: 'id' ensures an UPDATE is performed if a database trigger
+  // already created an empty row for this user_id before we get here.
+  const { error: profileError } = await serviceClient
+    .from("user_profiles")
+    .upsert(
+      { id: newUserId, role, display_name: displayName, email },
+      { onConflict: "id" }
+    );
 
   if (profileError) {
-    console.error("User profile upsert error:", profileError);
+    console.error("User profile upsert error:", {
+      code: profileError.code,
+      message: profileError.message,
+      details: profileError.details,
+      userId: newUserId,
+    });
     return { error: "User created but profile setup failed. Contact support." };
   }
 
@@ -91,6 +98,46 @@ export async function addCompanyUser(
   if (memberError && memberError.code !== "23505") {
     console.error("Company membership insert error:", memberError);
     return { error: "User created but company link failed. Contact support." };
+  }
+
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { error: null, success: true };
+}
+
+// ── Remove company member ─────────────────────────────────────────────────────
+// Deletes the company_memberships row only. Auth user is preserved.
+
+export async function removeCompanyMember(
+  _prevState: CompanyActionState,
+  formData: FormData
+): Promise<CompanyActionState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "You must be signed in." };
+
+  const { data: callerProfile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("id", userData.user.id)
+    .single();
+
+  if (callerProfile?.role !== "admin") return { error: "Admin access required." };
+
+  const membershipId = (formData.get("membership_id") as string)?.trim();
+  const companyId = (formData.get("company_id") as string)?.trim();
+
+  if (!membershipId) return { error: "Membership ID missing." };
+  if (!companyId) return { error: "Company ID missing." };
+
+  const { error } = await supabase
+    .from("company_memberships")
+    .delete()
+    .eq("id", membershipId);
+
+  if (error) {
+    console.error("Remove company member error:", error);
+    return { error: "Failed to remove user from company." };
   }
 
   revalidatePath(`/admin/companies/${companyId}`);

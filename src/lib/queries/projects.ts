@@ -98,7 +98,32 @@ export async function getAdminProjectList(
       return [];
     }
 
-  return (data ?? []).map((row: Record<string, unknown>) => ({
+  const rows = data ?? [];
+
+  // Batch-resolve designer names: one query for all unique assigned_designer_ids.
+  // This avoids N+1 queries — projects.assigned_designer_id references auth.users.id
+  // and cannot be joined directly to user_profiles via a hint.
+  const designerIds = [
+    ...new Set(
+      rows
+        .map((r: Record<string, unknown>) => r.assigned_designer_id as string | null)
+        .filter((id): id is string => id !== null)
+    ),
+  ];
+
+  const designerNameMap = new Map<string, string>();
+  if (designerIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("id, display_name")
+      .in("id", designerIds);
+
+    for (const p of profiles ?? []) {
+      if (p.display_name) designerNameMap.set(p.id, p.display_name);
+    }
+  }
+
+  return rows.map((row: Record<string, unknown>) => ({
     id: row.id as string,
     job_number: row.job_number as string,
     job_name: row.job_name as string,
@@ -111,7 +136,7 @@ export async function getAdminProjectList(
     company_id: row.company_id as string,
     company_name: (row.companies as { name: string } | null)?.name ?? null,
     assigned_designer_id: row.assigned_designer_id as string | null,
-    assigned_designer_name: null,
+    assigned_designer_name: designerNameMap.get(row.assigned_designer_id as string) ?? null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string | null,
     requested_approval_date: row.requested_approval_date as string | null,
@@ -224,6 +249,19 @@ export async function getProjectDetail(
 
   const row = data as Record<string, unknown>;
 
+  // Fetch designer name separately — projects.assigned_designer_id references
+  // auth.users.id, not a direct FK to user_profiles, so a join hint is unreliable.
+  let designerName: string | null = null;
+  const designerId = row.assigned_designer_id as string | null;
+  if (designerId) {
+    const { data: dp } = await supabase
+      .from("user_profiles")
+      .select("display_name")
+      .eq("id", designerId)
+      .single();
+    designerName = dp?.display_name ?? null;
+  }
+
   return {
     id: row.id as string,
     job_number: row.job_number as string,
@@ -246,8 +284,8 @@ export async function getProjectDetail(
     company_id: row.company_id as string,
     company_name: (row.companies as { name: string } | null)?.name ?? null,
     submitted_by: row.submitted_by as string | null,
-    assigned_designer_id: row.assigned_designer_id as string | null,
-    assigned_designer_name: null,
+    assigned_designer_id: designerId,
+    assigned_designer_name: designerName,
     assigned_at: row.assigned_at as string | null,
     submission_date: row.submission_date as string | null,
     authority_tracking_number: row.authority_tracking_number as string | null,

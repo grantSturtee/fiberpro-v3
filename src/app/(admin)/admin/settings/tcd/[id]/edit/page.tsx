@@ -15,7 +15,7 @@ export default async function AdminTcdEditPage({ params }: Props) {
 
   const { data: item } = await supabase
     .from("tcd_library")
-    .select("id, code, title, description, category, state, storage_path, sort_order")
+    .select("id, code, description, category, state, storage_path")
     .eq("id", id)
     .single();
 
