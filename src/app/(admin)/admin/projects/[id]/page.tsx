@@ -90,6 +90,9 @@ export default async function AdminProjectDetailPage({
     .order("created_at", { ascending: true });
 
   const files = filesData ?? [];
+  const intakeFiles = files.filter((f) =>
+    ["intake_attachment", "client_reference", "source_map"].includes(f.file_category as string)
+  );
   const sldFiles = files.filter((f) => f.file_category === "sld_sheet");
   const tcpFiles = files.filter((f) => f.file_category === "tcp_pdf");
 
@@ -216,7 +219,25 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 2. SLD Files */}
+            {/* 2. Client Intake Files */}
+            {intakeFiles.length > 0 && (
+              <SectionCard
+                title="Client Submission Files"
+                description="Files attached by the client at intake. Read-only reference for internal use."
+              >
+                <div className="divide-y divide-surface">
+                  {intakeFiles.map((f) => (
+                    <FileRow
+                      key={f.id}
+                      file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
+                      downloadUrl={downloadUrls[f.id]}
+                    />
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
+            {/* 3. SLD Files */}
             <SectionCard
               title="SLD Sheets"
               description="Street-level diagrams uploaded by admin. Used by designer as reference."

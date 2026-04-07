@@ -34,6 +34,8 @@ export async function addCompanyUser(
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const displayName = (formData.get("display_name") as string)?.trim();
   const role = (formData.get("role") as string)?.trim();
+  const password = (formData.get("password") as string) ?? "";
+  const confirmPassword = (formData.get("confirm_password") as string) ?? "";
 
   if (!companyId) return { error: "Company ID missing." };
   if (!email) return { error: "Email is required." };
@@ -41,12 +43,16 @@ export async function addCompanyUser(
   if (!["company_admin", "project_manager"].includes(role)) {
     return { error: "Invalid role. Must be company_admin or project_manager." };
   }
+  if (!password) return { error: "Password is required." };
+  if (password.length < 8) return { error: "Password must be at least 8 characters." };
+  if (password !== confirmPassword) return { error: "Passwords do not match." };
 
   // Use service role client to create auth user
   const serviceClient = createServiceClient();
 
   const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
     app_metadata: { role },
     user_metadata: { display_name: displayName },

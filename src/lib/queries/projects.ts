@@ -89,10 +89,10 @@ export async function getAdminProjectList(
       created_at,
       updated_at,
       requested_approval_date,
-      companies!inner ( name ),
+      companies ( name ),
       designer:user_profiles!projects_assigned_designer_id_fkey ( display_name )
     `)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error("getAdminProjectList error:", error);
@@ -212,7 +212,7 @@ export async function getProjectDetail(
       permit_notes,
       created_at,
       updated_at,
-      companies!inner ( name ),
+      companies ( name ),
       designer:user_profiles!projects_assigned_designer_id_fkey ( display_name )
     `)
     .eq("id", projectId)

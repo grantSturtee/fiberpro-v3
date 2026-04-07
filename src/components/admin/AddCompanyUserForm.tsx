@@ -28,7 +28,7 @@ export function AddCompanyUserForm({ companyId }: { companyId: string }) {
       <div className="rounded-lg bg-green-50 px-4 py-3">
         <p className="text-sm text-green-700 font-medium">User added successfully.</p>
         <p className="text-xs text-green-600 mt-0.5">
-          They can sign in with the email address provided. A password reset email may be required.
+          They can now sign in with their email and the password you set.
         </p>
       </div>
     );
@@ -87,6 +87,42 @@ export function AddCompanyUserForm({ companyId }: { companyId: string }) {
             <option value="company_admin">Company Admin</option>
             <option value="project_manager">Project Manager</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="cu-password">
+            Password<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            id="cu-password"
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="Min. 8 characters"
+            autoComplete="new-password"
+            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
+                       outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+            style={{ border: "1px solid #d4dde4" }}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="cu-confirm">
+            Confirm Password<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            id="cu-confirm"
+            name="confirm_password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="Re-enter password"
+            autoComplete="new-password"
+            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
+                       outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+            style={{ border: "1px solid #d4dde4" }}
+          />
         </div>
       </div>
 

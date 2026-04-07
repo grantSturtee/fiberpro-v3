@@ -28,7 +28,7 @@ export function CreateUserForm() {
       <div className="rounded-lg bg-green-50 px-4 py-3">
         <p className="text-sm text-green-700 font-medium">User created successfully.</p>
         <p className="text-xs text-green-600 mt-0.5">
-          They can sign in with the email address provided. Use the password reset flow to set their password.
+          They can now sign in with their email and the password you set.
         </p>
       </div>
     );
@@ -36,7 +36,7 @@ export function CreateUserForm() {
 
   return (
     <form className="space-y-4" action={formAction}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="iu-name">
             Display Name<span className="text-red-500 ml-0.5">*</span>
@@ -85,6 +85,42 @@ export function CreateUserForm() {
             <option value="designer">Designer</option>
             <option value="admin">Admin</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="iu-password">
+            Password<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            id="iu-password"
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="Min. 8 characters"
+            autoComplete="new-password"
+            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
+                       outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+            style={{ border: "1px solid #d4dde4" }}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="iu-confirm">
+            Confirm Password<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            id="iu-confirm"
+            name="confirm_password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="Re-enter password"
+            autoComplete="new-password"
+            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
+                       outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+            style={{ border: "1px solid #d4dde4" }}
+          />
         </div>
       </div>
 
