@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { deactivatePricingRule, type PricingActionState } from "@/app/(admin)/admin/settings/pricing/actions";
+import { deactivateJurisdiction, type JurisdictionActionState } from "@/app/(admin)/admin/settings/jurisdictions/actions";
 
-const initialState: PricingActionState = { error: null };
+const initialState: JurisdictionActionState = { error: null };
 
 function DeactivateBtn({ name }: { name: string }) {
   const { pending } = useFormStatus();
@@ -22,8 +22,8 @@ function DeactivateBtn({ name }: { name: string }) {
   );
 }
 
-export function PricingDeactivateButton({ itemId, name }: { itemId: string; name: string }) {
-  const [, formAction] = useActionState(deactivatePricingRule, initialState);
+export function JurisdictionDeactivateBtn({ itemId, name }: { itemId: string; name: string }) {
+  const [, formAction] = useActionState(deactivateJurisdiction, initialState);
   return (
     <form action={formAction}>
       <input type="hidden" name="id" value={itemId} />

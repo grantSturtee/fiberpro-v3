@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { AUTHORITY_TYPE_DB_MAP, type AuthorityTypeDisplay } from "@/lib/constants/authorities";
+import { computeProject } from "@/lib/compute/projectCompute";
 
 export type NewProjectState = {
   error: string | null;
@@ -113,7 +114,16 @@ export async function createAdminProject(
     return { error: "Failed to create project. Please try again." };
   }
 
-  // ── 5. Activity log ────────────────────────────────────────────────────────
+  // ── 5. Compute project (jurisdiction + price) ──────────────────────────────
+  // Runs async but we await it before redirect so the detail page shows
+  // fresh data immediately. Errors are non-fatal — project was already created.
+  try {
+    await computeProject(supabase, project.id, userData.user.id);
+  } catch (e) {
+    console.error("computeProject error on creation:", e);
+  }
+
+  // ── 6. Activity log ────────────────────────────────────────────────────────
   await supabase.from("project_activity").insert({
     project_id: project.id,
     actor_id: userData.user.id,

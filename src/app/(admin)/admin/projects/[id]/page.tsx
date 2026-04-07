@@ -9,10 +9,25 @@ import { AssignDesignerForm } from "@/components/admin/AssignDesignerForm";
 import { ApproveDesignForm, RequestRevisionsForm } from "@/components/admin/WorkflowActionForms";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectDetail, getDesigners } from "@/lib/queries/projects";
+import { getJurisdiction, type JurisdictionSummary } from "@/lib/queries/jurisdictions";
+import { RecomputeProjectButton } from "@/components/admin/RecomputeProjectButton";
+import { GeneratePackageButton } from "@/components/admin/GeneratePackageButton";
+import { getLatestJob } from "@/lib/workflow/enqueue";
+import { JOB_STATUS_LABEL, JOB_STATUS_COLOR, type WorkflowJobStatus } from "@/types/workflow";
 import { formatDate, humanize } from "@/lib/utils/format";
-import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES } from "@/lib/constants/files";
+import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES, GENERATED_FILE_CATEGORIES } from "@/lib/constants/files";
 
 export const metadata: Metadata = { title: "Project" };
+
+const JOB_TYPE_LABELS_INLINE: Record<string, string> = {
+  project_computed:          "Project Computed",
+  generate_permit_package:   "Generate Package",
+  generate_cover_sheet:      "Generate Cover Sheet",
+  generate_application_form: "Generate Application",
+  generate_tcp_package:      "Generate TCP Package",
+  submit_permit:             "Submit Permit",
+  generate_invoice:          "Generate Invoice",
+};
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -62,6 +77,136 @@ function FileRow({
   );
 }
 
+// ── Project Intelligence section ──────────────────────────────────────────────
+
+const REQUIRED_DOC_FLAGS: { key: keyof JurisdictionSummary; label: string }[] = [
+  { key: "requires_coi",                    label: "COI" },
+  { key: "requires_pe_stamp",               label: "PE Stamp" },
+  { key: "requires_traffic_control_plan",   label: "TCP" },
+  { key: "requires_cover_sheet",            label: "Cover Sheet" },
+  { key: "requires_application_form",       label: "Application Form" },
+];
+
+function ProjectIntelligenceSection({
+  projectId,
+  jurisdiction,
+  estimatedPrice,
+}: {
+  projectId: string;
+  jurisdiction: JurisdictionSummary | null;
+  estimatedPrice: number | null;
+}) {
+  const requiredDocs = jurisdiction
+    ? REQUIRED_DOC_FLAGS.filter((f) => jurisdiction[f.key] === true)
+    : [];
+
+  return (
+    <SectionCard
+      title="Project Intelligence"
+      description="Auto-computed from jurisdiction rules and pricing engine. Recalculate after editing project scope."
+    >
+      <div className="space-y-5">
+
+        {/* Jurisdiction */}
+        <div>
+          <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Jurisdiction</p>
+          {jurisdiction ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Authority</p>
+                  <p className="text-sm text-ink">{jurisdiction.authority_name}</p>
+                </div>
+                {jurisdiction.submission_method && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Submission</p>
+                    <p className="text-sm text-ink">{humanize(jurisdiction.submission_method)}</p>
+                  </div>
+                )}
+                {jurisdiction.avg_approval_days && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Avg. Approval</p>
+                    <p className="text-sm text-ink">~{jurisdiction.avg_approval_days} days</p>
+                  </div>
+                )}
+                {(jurisdiction.application_fee !== null || jurisdiction.jurisdiction_fee !== null) && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Fees</p>
+                    <p className="text-sm text-ink">
+                      {[
+                        jurisdiction.application_fee !== null ? `App $${Number(jurisdiction.application_fee).toFixed(2)}` : null,
+                        jurisdiction.jurisdiction_fee !== null ? `Jur $${Number(jurisdiction.jurisdiction_fee).toFixed(2)}` : null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {requiredDocs.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Required Documents</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {requiredDocs.map((f) => (
+                      <span
+                        key={f.key}
+                        className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5"
+                      >
+                        {f.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted">
+                  {[jurisdiction.township, jurisdiction.county ? `${jurisdiction.county} Co.` : null, jurisdiction.state]
+                    .filter(Boolean).join(", ")}
+                </p>
+                <Link
+                  href={`/admin/settings/jurisdictions/${jurisdiction.id}/edit`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Edit →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No jurisdiction matched. Check state/county/city, then recalculate.</p>
+          )}
+        </div>
+
+        {/* Estimated Price */}
+        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5">
+          <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Estimated Price</p>
+          <p className="text-2xl font-semibold text-ink">
+            {estimatedPrice !== null
+              ? `$${Number(estimatedPrice).toFixed(2)}`
+              : <span className="text-base font-normal text-muted">Not calculated</span>
+            }
+          </p>
+          {estimatedPrice === null && (
+            <p className="mt-1 text-xs text-muted">
+              Requires a matching jurisdiction and pricing rule.{" "}
+              <Link href="/admin/settings/pricing" className="text-primary hover:underline">
+                Manage pricing rules →
+              </Link>
+            </p>
+          )}
+        </div>
+
+        {/* Recalculate */}
+        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4 flex items-center justify-between gap-4">
+          <p className="text-xs text-muted">
+            Triggers: jurisdiction match + price calculation + workflow log.
+          </p>
+          <RecomputeProjectButton projectId={projectId} />
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminProjectDetailPage({
@@ -83,6 +228,19 @@ export default async function AdminProjectDetailPage({
 
   if (!project) notFound();
 
+  const [jurisdiction, packageJob, workflowJobsData] = await Promise.all([
+    project.jurisdiction_id ? getJurisdiction(supabase, project.jurisdiction_id) : null,
+    getLatestJob(supabase, id, "generate_permit_package"),
+    supabase
+      .from("workflow_jobs")
+      .select("id, job_type, status, error, created_at, updated_at")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false })
+      .limit(25),
+  ]);
+
+  const workflowJobs = workflowJobsData.data ?? [];
+
   // Fetch project files
   const { data: filesData } = await supabase
     .from("project_files")
@@ -99,6 +257,10 @@ export default async function AdminProjectDetailPage({
   const sldFiles = files.filter((f) => f.file_category === FILE_CATEGORIES.SLD_SHEET);
   // Zone: DESIGNER — TCP sheets produced by the assigned designer
   const tcpFiles = files.filter((f) => f.file_category === FILE_CATEGORIES.TCP_PDF);
+  // Zone: GENERATED — n8n-produced outputs (permit package, etc.)
+  const generatedFiles = files.filter((f) =>
+    (GENERATED_FILE_CATEGORIES as readonly string[]).includes(f.file_category as string)
+  );
 
   // Generate signed download URLs (1 hour TTL)
   const downloadUrls: Record<string, string> = {};
@@ -223,7 +385,14 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 2. Client Intake Files */}
+            {/* 2. Project Intelligence */}
+            <ProjectIntelligenceSection
+              projectId={project.id}
+              jurisdiction={jurisdiction}
+              estimatedPrice={project.estimated_price}
+            />
+
+            {/* 3. Client Intake Files */}
             {intakeFiles.length > 0 && (
               <SectionCard
                 title="Client Submission Files"
@@ -241,7 +410,7 @@ export default async function AdminProjectDetailPage({
               </SectionCard>
             )}
 
-            {/* 3. SLD Files */}
+            {/* 4. SLD Files */}
             <SectionCard
               title="SLD Sheets"
               description="Street-level diagrams uploaded by admin. Used by designer as reference."
@@ -275,7 +444,7 @@ export default async function AdminProjectDetailPage({
               </div>
             </SectionCard>
 
-            {/* 3. TCD Selection */}
+            {/* 5. TCD Selection */}
             <SectionCard
               title="TCD Selection"
               description="Admin selects applicable TCD sheets from the system library."
@@ -305,7 +474,7 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 4. Designer Assignment */}
+            {/* 6. Designer Assignment */}
             <SectionCard
               title="Designer Assignment"
               description="Assign a designer after SLD sheets are uploaded and TCD selection is complete."
@@ -339,7 +508,7 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 5. TCP Design Files */}
+            {/* 7. TCP Design Files */}
             <SectionCard
               title="TCP Design Files"
               description="Traffic Control Plan sheets uploaded by the assigned designer."
@@ -369,7 +538,7 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 6. Admin Review & Approval */}
+            {/* 8. Admin Review & Approval */}
             <SectionCard
               title="Admin Review & Approval"
               description="Review TCP sheets above, then approve the design or request revisions."
@@ -423,32 +592,71 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 7. Permit Package Generation */}
+            {/* 9. Generated Files */}
+            {generatedFiles.length > 0 && (
+              <SectionCard
+                title="Generated Files"
+                description="Outputs produced by the automated permit package pipeline."
+              >
+                <div className="divide-y divide-surface">
+                  {generatedFiles.map((f) => (
+                    <FileRow
+                      key={f.id}
+                      file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
+                      downloadUrl={downloadUrls[f.id]}
+                    />
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
+            {/* 10. Permit Package Generation */}
             <SectionCard
               title="Permit Package"
-              description="Generated from: cover sheet + TCP sheets + SLD sheets + selected TCD sheets."
+              description="Assembled by n8n: cover sheet + TCP sheets + SLD sheets + selected TCD sheets."
             >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm text-dim">
-                    {project.status === "approved"
-                      ? "Design is approved. Select a cover sheet template and generate the package."
-                      : "Package generation requires: SLD sheets · TCD selection · TCP sheets · Admin approval."}
-                  </p>
-                  <p className="text-xs text-muted mt-1">
-                    Generation runs as a background job via n8n.
-                  </p>
+              <div className="space-y-4">
+                {/* Job status */}
+                {packageJob && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                        packageJob.status === "completed" ? "bg-emerald-500" :
+                        packageJob.status === "failed" ? "bg-red-500" :
+                        packageJob.status === "running" ? "bg-blue-500 animate-pulse" :
+                        "bg-amber-400"
+                      }`}
+                    />
+                    <span className={`text-sm font-medium ${JOB_STATUS_COLOR[packageJob.status as WorkflowJobStatus] ?? "text-muted"}`}>
+                      {JOB_STATUS_LABEL[packageJob.status as WorkflowJobStatus] ?? packageJob.status}
+                    </span>
+                    <span className="text-xs text-muted">· {formatDate(packageJob.updated_at ?? packageJob.created_at)}</span>
+                    {packageJob.error && (
+                      <span className="text-xs text-red-600 ml-1">— {packageJob.error}</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-dim">
+                      {project.status === "approved"
+                        ? "Design approved. Enqueue the generation job — n8n will assemble and store the package."
+                        : "Requires: SLD sheets · TCD selection · TCP sheets · Admin approval."}
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      Generation runs as a background n8n job. No files are produced by the app.
+                    </p>
+                  </div>
+                  <GeneratePackageButton
+                    projectId={project.id}
+                    canGenerate={project.status === "approved"}
+                  />
                 </div>
-                <button
-                  disabled={project.status !== "approved"}
-                  className="flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium bg-canvas text-muted cursor-not-allowed"
-                >
-                  Generate Package
-                </button>
               </div>
             </SectionCard>
 
-            {/* 8. Submission & Permit Tracking */}
+            {/* 10. Submission & Permit Tracking */}
             <SectionCard
               title="Submission & Permit Tracking"
               description="Track the submission to the government authority and record the permit outcome."
@@ -473,6 +681,46 @@ export default async function AdminProjectDetailPage({
                 <p className="text-sm text-muted">
                   Available after the permit package is generated and ready for submission.
                 </p>
+              )}
+            </SectionCard>
+
+            {/* 11. Workflow Activity */}
+            <SectionCard
+              title="Workflow Activity"
+              description="All automation jobs for this project."
+              action={
+                <Link href={`/admin/workflows?project=${id}`} className="text-xs text-blue-600 hover:underline">
+                  Full list
+                </Link>
+              }
+            >
+              {workflowJobs.length === 0 ? (
+                <p className="text-sm text-muted">No workflow jobs yet.</p>
+              ) : (
+                <div className="divide-y divide-surface -mx-6 px-0">
+                  {workflowJobs.map((job) => {
+                    const s = job.status as WorkflowJobStatus;
+                    return (
+                      <div key={job.id} className="flex items-center justify-between gap-4 px-6 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm text-ink font-medium">
+                            {JOB_TYPE_LABELS_INLINE[job.job_type as string] ?? job.job_type}
+                          </p>
+                          <p className="text-xs text-muted">{formatDate(job.created_at)}</p>
+                          {job.error && <p className="text-xs text-red-500 mt-0.5">{job.error}</p>}
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span className={`text-xs font-medium ${JOB_STATUS_COLOR[s] ?? "text-muted"}`}>
+                            {JOB_STATUS_LABEL[s] ?? s}
+                          </span>
+                          <Link href={`/admin/workflows/${job.id}`} className="text-xs text-blue-600 hover:underline">
+                            View
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </SectionCard>
           </div>

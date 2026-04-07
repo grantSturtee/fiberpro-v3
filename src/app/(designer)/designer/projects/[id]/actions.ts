@@ -83,6 +83,7 @@ export async function uploadTCP(
     uploaded_by: userId,
     uploader_label: actorLabel,
     file_category: "tcp_pdf",
+    file_type: "tcp",
     file_name: file.name,
     storage_path: storagePath,
     file_size_bytes: file.size,

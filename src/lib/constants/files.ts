@@ -72,6 +72,80 @@ export const GENERATED_FILE_CATEGORIES: FileCategoryValue[] = [
   FILE_CATEGORIES.PERMIT_PACKAGE,
 ];
 
+// ── Storage folder zones ──────────────────────────────────────────────────────
+//
+// Maps to project_files.file_type and the physical storage path prefix.
+// Bucket: project-files
+// Path:   /{project_id}/{file_type}/{filename}
+//
+// Generated files use fixed filenames so n8n can overwrite them in-place:
+//   generated/permit_package.pdf
+//   generated/cover_sheet.pdf
+//   generated/application.pdf
+
+export const FILE_TYPES = {
+  INTAKE:    "intake",
+  SLD:       "sld",
+  TCP:       "tcp",
+  GENERATED: "generated",
+  OTHER:     "other",
+} as const;
+
+export type FileType = (typeof FILE_TYPES)[keyof typeof FILE_TYPES];
+
+/** Fixed output filenames within the generated/ folder. n8n writes to these paths. */
+export const GENERATED_FILE_NAMES = {
+  PERMIT_PACKAGE: "permit_package.pdf",
+  COVER_SHEET:    "cover_sheet.pdf",
+  APPLICATION:    "application.pdf",
+} as const;
+
+/**
+ * Canonical storage path for a project file.
+ * For generated files, pass a GENERATED_FILE_NAMES value as fileName.
+ * For all others, pass a unique timestamped filename to avoid collisions.
+ */
+export function getStoragePath(
+  projectId: string,
+  fileType: FileType,
+  fileName: string
+): string {
+  return `${projectId}/${fileType}/${fileName}`;
+}
+
+/**
+ * Derive the storage folder zone from a file_category value.
+ * Used when inserting new rows to set file_type consistently.
+ */
+export function categoryToFileType(category: FileCategoryValue): FileType {
+  switch (category) {
+    case "intake_attachment":
+    case "client_reference":
+    case "source_map":
+      return FILE_TYPES.INTAKE;
+
+    case "sld_sheet":
+    case "application_form":
+    case "cover_sheet":
+      return FILE_TYPES.SLD;
+
+    case "tcp_pdf":
+    case "tcp_source":
+    case "tcd_sheet":
+      return FILE_TYPES.TCP;
+
+    case "permit_package":
+    case "permit_document":
+    case "coi":
+    case "pe_stamp":
+    case "invoice_attachment":
+      return FILE_TYPES.GENERATED;
+
+    default:
+      return FILE_TYPES.OTHER;
+  }
+}
+
 /** Human-readable labels for each category. */
 export const FILE_CATEGORY_LABELS: Record<FileCategoryValue, string> = {
   intake_attachment: "Intake Attachment",

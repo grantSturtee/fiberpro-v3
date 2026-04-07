@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { computeProject } from "@/lib/compute/projectCompute";
+import { enqueueWorkflowJob } from "@/lib/workflow/enqueue";
+import type { PermitPackageMetadata } from "@/types/workflow";
+import { getStoragePath, categoryToFileType } from "@/lib/constants/files";
 
 // ── Shared state type ─────────────────────────────────────────────────────────
 
@@ -67,6 +71,7 @@ export async function uploadSLD(
     uploaded_by: userId,
     uploader_label: actorLabel,
     file_category: "sld_sheet",
+    file_type: "sld",
     file_name: file.name,
     storage_path: storagePath,
     file_size_bytes: file.size,
@@ -228,6 +233,162 @@ export async function approveDesign(
     metadata: {},
   });
 
+  // Auto-enqueue permit package generation on approval.
+  // Metadata is minimal here — admin can trigger a full enqueue from the UI
+  // which includes TCD/file details.
+  await enqueueWorkflowJob(
+    supabase,
+    projectId,
+    "generate_permit_package",
+    { project_id: projectId, trigger: "design_approved" },
+    userData.user.id
+  );
+
   revalidatePath(`/admin/projects/${projectId}`);
   return { error: null, success: true };
+}
+
+// ── Recompute Project ─────────────────────────────────────────────────────────
+// Full compute pass: reassign jurisdiction + recalculate price.
+// Logs to workflow_jobs for audit and future n8n pickup.
+
+export type RecomputeProjectState = {
+  error: string | null;
+  jurisdictionMatched?: boolean;
+  estimatedPrice?: number | null;
+  ruleName?: string | null;
+  sheetCount?: number | null;
+};
+
+export async function recomputeProject(
+  _prevState: RecomputeProjectState,
+  formData: FormData
+): Promise<RecomputeProjectState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const projectId = formData.get("project_id") as string;
+  if (!projectId) return { error: "Missing project ID." };
+
+  let result;
+  try {
+    result = await computeProject(supabase, projectId, userData.user.id);
+  } catch (e) {
+    console.error("recomputeProject error:", e);
+    return { error: "Compute failed. Check server logs." };
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  return {
+    error: null,
+    jurisdictionMatched: result.outputs.jurisdiction_id !== null,
+    estimatedPrice: result.outputs.estimated_price,
+    ruleName: result.priceBreakdown?.rule_name ?? null,
+    sheetCount: result.outputs.sheet_count,
+  };
+}
+
+// ── Enqueue Permit Package Generation ────────────────────────────────────────
+// Builds full metadata from project state, then inserts a workflow_jobs row.
+// No PDF generation happens here — n8n picks up the pending job.
+
+export type EnqueuePackageState = {
+  error: string | null;
+  jobId?: string | null;
+};
+
+export async function enqueuePackageGeneration(
+  _prevState: EnqueuePackageState,
+  formData: FormData
+): Promise<EnqueuePackageState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const projectId = formData.get("project_id") as string;
+  if (!projectId) return { error: "Missing project ID." };
+
+  // ── Fetch project ──────────────────────────────────────────────────────────
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, status, jurisdiction_id, authority_type")
+    .eq("id", projectId)
+    .single();
+
+  if (!project) return { error: "Project not found." };
+  if (project.status !== "approved") return { error: "Design must be approved before generating package." };
+
+  // ── Fetch jurisdiction ─────────────────────────────────────────────────────
+  let jurisdiction = { id: null as string | null, authority_name: null as string | null, submission_method: null as string | null };
+  let requiredDocuments: string[] = [];
+
+  if (project.jurisdiction_id) {
+    const { data: jur } = await supabase
+      .from("jurisdictions")
+      .select("id, authority_name, submission_method, requires_coi, requires_pe_stamp, requires_traffic_control_plan, requires_cover_sheet, requires_application_form")
+      .eq("id", project.jurisdiction_id)
+      .single();
+
+    if (jur) {
+      jurisdiction = { id: jur.id, authority_name: jur.authority_name, submission_method: jur.submission_method };
+      if (jur.requires_coi) requiredDocuments.push("coi");
+      if (jur.requires_pe_stamp) requiredDocuments.push("pe_stamp");
+      if (jur.requires_traffic_control_plan) requiredDocuments.push("tcp");
+      if (jur.requires_cover_sheet) requiredDocuments.push("cover_sheet");
+      if (jur.requires_application_form) requiredDocuments.push("application_form");
+    }
+  }
+
+  // ── Fetch selected TCDs (with storage paths) ───────────────────────────────
+  const { data: tcdRows } = await supabase
+    .from("project_tcd_selections")
+    .select("id, tcd_library ( id, code, storage_path )")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true });
+
+  const selectedTcds = (tcdRows ?? []).map((row: Record<string, unknown>) => {
+    const lib = row.tcd_library as { id: string; code: string; storage_path: string | null } | null;
+    return { id: lib?.id ?? "", code: lib?.code ?? "", storage_path: lib?.storage_path ?? null };
+  });
+
+  // ── Fetch SLD + TCP file IDs ───────────────────────────────────────────────
+  const { data: filesData } = await supabase
+    .from("project_files")
+    .select("id, file_category")
+    .eq("project_id", projectId)
+    .in("file_category", ["sld_sheet", "tcp_pdf"]);
+
+  const files = filesData ?? [];
+  const sldIds = files.filter((f: { id: string; file_category: string }) => f.file_category === "sld_sheet").map((f: { id: string }) => f.id);
+  const tcpIds = files.filter((f: { id: string; file_category: string }) => f.file_category === "tcp_pdf").map((f: { id: string }) => f.id);
+
+  // ── Build metadata ─────────────────────────────────────────────────────────
+  const metadata: PermitPackageMetadata = {
+    project_id: projectId,
+    required_documents: requiredDocuments,
+    jurisdiction,
+    selected_tcds: selectedTcds,
+    file_ids: {
+      sld: sldIds,
+      tcp: tcpIds,
+      cover_template_id: null, // TODO: allow admin to select cover template
+    },
+  };
+
+  // ── Enqueue ────────────────────────────────────────────────────────────────
+  const jobId = await enqueueWorkflowJob(
+    supabase,
+    projectId,
+    "generate_permit_package",
+    metadata as unknown as Record<string, unknown>,
+    userData.user.id
+  );
+
+  if (!jobId) return { error: "Failed to enqueue job. Please try again." };
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  return { error: null, jobId };
 }

@@ -58,6 +58,9 @@ export type ProjectDetail = {
   expected_response_date: string | null;
   permit_received_date: string | null;
   permit_notes: string | null;
+  jurisdiction_id: string | null;
+  estimated_price: number | null;
+  pricing_rule_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -233,6 +236,9 @@ export async function getProjectDetail(
       expected_response_date,
       permit_received_date,
       permit_notes,
+      jurisdiction_id,
+      estimated_price,
+      pricing_rule_id,
       created_at,
       updated_at,
       companies ( name )
@@ -292,6 +298,9 @@ export async function getProjectDetail(
     expected_response_date: row.expected_response_date as string | null,
     permit_received_date: row.permit_received_date as string | null,
     permit_notes: row.permit_notes as string | null,
+    jurisdiction_id: row.jurisdiction_id as string | null,
+    estimated_price: row.estimated_price as number | null,
+    pricing_rule_id: row.pricing_rule_id as string | null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };

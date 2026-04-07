@@ -297,85 +297,8 @@ export async function deactivateCoverTemplate(
 }
 
 // =============================================================================
-// D3. PRICING RULES
+// D3. PRICING RULES — moved to /admin/settings/pricing/actions.ts
 // =============================================================================
-
-function parseCents(value: string | null): number | null {
-  if (!value || value.trim() === "") return null;
-  const n = parseFloat(value.trim());
-  if (isNaN(n) || n < 0) return null;
-  return Math.round(n * 100);
-}
-
-export async function addPricingRule(
-  _prev: SettingsActionState,
-  formData: FormData
-): Promise<SettingsActionState> {
-  const { supabase, error: authError } = await requireAdmin();
-  if (authError || !supabase) return { error: authError };
-
-  const label = (formData.get("label") as string)?.trim();
-  if (!label) return { error: "Rule label is required." };
-
-  const state = (formData.get("state") as string)?.trim() || null;
-  const county = (formData.get("county") as string)?.trim() || null;
-  const municipality = (formData.get("municipality") as string)?.trim() || null;
-  const jobTypeRaw = (formData.get("job_type") as string)?.trim() || null;
-  const authorityTypeRaw = (formData.get("authority_type") as string)?.trim() || null;
-  const notes = (formData.get("notes") as string)?.trim() || null;
-
-  const validJobTypes = ["tcp", "sld", "full_package", "revision", "other"];
-  const jobType = jobTypeRaw && validJobTypes.includes(jobTypeRaw) ? jobTypeRaw : null;
-
-  const validAuthTypes = ["county", "njdot", "municipal", "other"];
-  const authorityType = authorityTypeRaw && validAuthTypes.includes(authorityTypeRaw)
-    ? authorityTypeRaw : null;
-
-  const { error: insertError } = await supabase.from("pricing_rules").insert({
-    label,
-    state,
-    county,
-    municipality,
-    job_type: jobType,
-    authority_type: authorityType,
-    base_amount_cents: parseCents(formData.get("base_amount") as string),
-    per_sheet_cents: parseCents(formData.get("per_sheet") as string),
-    application_fee_cents: parseCents(formData.get("application_fee") as string),
-    jurisdiction_fee_cents: parseCents(formData.get("jurisdiction_fee") as string),
-    pe_fee_cents: parseCents(formData.get("pe_fee") as string),
-    coi_fee_cents: parseCents(formData.get("coi_fee") as string),
-    rush_fee_cents: parseCents(formData.get("rush_fee") as string),
-    notes,
-    is_active: true,
-  });
-
-  if (insertError) {
-    console.error("Pricing rule insert error:", insertError);
-    return { error: "Failed to add pricing rule." };
-  }
-
-  revalidatePath("/admin/settings/pricing");
-  return { error: null, success: true };
-}
-
-export async function deactivatePricingRule(
-  _prev: SettingsActionState,
-  formData: FormData
-): Promise<SettingsActionState> {
-  const { supabase, error: authError } = await requireAdmin();
-  if (authError || !supabase) return { error: authError };
-
-  const id = (formData.get("id") as string)?.trim();
-  if (!id) return { error: "Missing ID." };
-
-  const { error } = await supabase
-    .from("pricing_rules").update({ is_active: false }).eq("id", id);
-
-  if (error) return { error: "Failed to deactivate rule." };
-
-  revalidatePath("/admin/settings/pricing");
-  return { error: null, success: true };
-}
 
 // =============================================================================
 // D4. JURISDICTION REQUIREMENTS
