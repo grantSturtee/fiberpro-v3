@@ -26,9 +26,11 @@ function EnqueueBtn({ disabled }: { disabled: boolean }) {
 export function GeneratePackageButton({
   projectId,
   canGenerate,
+  disabledReason,
 }: {
   projectId: string;
   canGenerate: boolean;
+  disabledReason?: string;
 }) {
   const [state, formAction] = useActionState(enqueuePackageGeneration, initialState);
 
@@ -42,11 +44,14 @@ export function GeneratePackageButton({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <form action={formAction}>
         <input type="hidden" name="project_id" value={projectId} />
         <EnqueueBtn disabled={!canGenerate} />
       </form>
+      {!canGenerate && disabledReason && (
+        <p className="text-xs text-muted">{disabledReason}</p>
+      )}
       {state.error && (
         <p className="text-xs text-red-600">{state.error}</p>
       )}

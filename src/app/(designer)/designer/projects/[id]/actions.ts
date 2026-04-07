@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 
 // ── Shared state type ─────────────────────────────────────────────────────────
 
@@ -65,14 +66,16 @@ export async function uploadTCP(
   const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${projectId}/tcp/${Date.now()}_${safeFileName}`;
 
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
+  // Use service client for storage — bypasses RLS on storage bucket.
+  // Auth + assignment already verified above via the user session.
+  const storage = createServiceClient();
+  const { error: uploadError } = await storage.storage
     .from("project-files")
     .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
 
   if (uploadError) {
-    console.error("TCP upload error:", uploadError);
-    return { error: "File upload failed. Please try again." };
+    console.error("TCP upload error:", uploadError.message, uploadError);
+    return { error: `File upload failed: ${uploadError.message}` };
   }
 
   const actorLabel = await getActorLabel(supabase, userId);
@@ -161,7 +164,10 @@ export async function submitForReview(
 
   const actorLabel = await getActorLabel(supabase, userId);
 
-  const { error: updateError } = await supabase
+  // Use service client for project status update — designer RLS only grants SELECT
+  // on projects. Assignment is already verified above via the user session client.
+  const serviceClient = createServiceClient();
+  const { error: updateError } = await serviceClient
     .from("projects")
     .update({ status: "waiting_for_admin_review" })
     .eq("id", projectId);

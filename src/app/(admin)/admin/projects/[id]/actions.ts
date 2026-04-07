@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { computeProject } from "@/lib/compute/projectCompute";
 import { enqueueWorkflowJob } from "@/lib/workflow/enqueue";
 import type { PermitPackageMetadata } from "@/types/workflow";
@@ -53,14 +54,16 @@ export async function uploadSLD(
   const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${projectId}/sld/${Date.now()}_${safeFileName}`;
 
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
+  // Use service client for storage upload — bypasses RLS on storage bucket.
+  // Auth + role is already verified above via the user session.
+  const storage = createServiceClient();
+  const { error: uploadError } = await storage.storage
     .from("project-files")
     .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
 
   if (uploadError) {
-    console.error("SLD upload error:", uploadError);
-    return { error: "File upload failed. Please try again." };
+    console.error("SLD upload error:", uploadError.message, uploadError);
+    return { error: `File upload failed: ${uploadError.message}` };
   }
 
   const actorLabel = await getActorLabel(supabase, userId);
@@ -391,4 +394,82 @@ export async function enqueuePackageGeneration(
 
   revalidatePath(`/admin/projects/${projectId}`);
   return { error: null, jobId };
+}
+
+// ── TCD Selection ─────────────────────────────────────────────────────────────
+// Add one or more TCD library items to a project's TCD selection.
+
+export async function addTCDsToProject(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const projectId = formData.get("project_id") as string;
+  const tcdIdsRaw = formData.get("tcd_ids") as string;
+
+  if (!projectId) return { error: "Missing project ID." };
+  if (!tcdIdsRaw) return { error: "No TCDs selected." };
+
+  let tcdIds: string[];
+  try {
+    tcdIds = JSON.parse(tcdIdsRaw);
+  } catch {
+    return { error: "Invalid TCD selection." };
+  }
+  if (!Array.isArray(tcdIds) || tcdIds.length === 0) return { error: "No TCDs selected." };
+
+  const rows = tcdIds.map((tcdId: string) => ({
+    project_id: projectId,
+    tcd_library_item_id: tcdId,
+    added_by: userData.user!.id,
+    sort_order: 0,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("project_tcd_selections")
+    .insert(rows);
+
+  // Conflict (already selected) is fine — ignore duplicate-key errors.
+  if (insertError && insertError.code !== "23505") {
+    console.error("addTCDsToProject error:", insertError);
+    return { error: "Failed to save TCD selection." };
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  return { error: null, success: true };
+}
+
+// Remove a single TCD selection row by its ID.
+
+export async function removeTCDFromProject(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const selectionId = formData.get("selection_id") as string;
+  const projectId = formData.get("project_id") as string;
+
+  if (!selectionId) return { error: "Missing selection ID." };
+  if (!projectId) return { error: "Missing project ID." };
+
+  const { error } = await supabase
+    .from("project_tcd_selections")
+    .delete()
+    .eq("id", selectionId);
+
+  if (error) {
+    console.error("removeTCDFromProject error:", error);
+    return { error: "Failed to remove TCD." };
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  return { error: null, success: true };
 }

@@ -73,7 +73,7 @@ export function TcdEditForm({ item }: { item: TcdItem }) {
   const borderStyle = { border: "1px solid #d4dde4" };
 
   return (
-    <form className="space-y-4" action={formAction} encType="multipart/form-data">
+    <form className="space-y-4" action={formAction}>
       <input type="hidden" name="id" value={item.id} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

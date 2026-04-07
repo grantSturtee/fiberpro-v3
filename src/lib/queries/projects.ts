@@ -58,6 +58,7 @@ export type ProjectDetail = {
   expected_response_date: string | null;
   permit_received_date: string | null;
   permit_notes: string | null;
+  state: string | null;
   jurisdiction_id: string | null;
   estimated_price: number | null;
   pricing_rule_id: string | null;
@@ -236,6 +237,7 @@ export async function getProjectDetail(
       expected_response_date,
       permit_received_date,
       permit_notes,
+      state,
       jurisdiction_id,
       estimated_price,
       pricing_rule_id,
@@ -248,7 +250,7 @@ export async function getProjectDetail(
 
   if (error || !data) {
     if (error?.code !== "PGRST116") {
-      console.error("getProjectDetail error:", error);
+      console.error("getProjectDetail error FULL:", JSON.stringify(error, null, 2));
     }
     return null;
   }
@@ -298,6 +300,7 @@ export async function getProjectDetail(
     expected_response_date: row.expected_response_date as string | null,
     permit_received_date: row.permit_received_date as string | null,
     permit_notes: row.permit_notes as string | null,
+    state: row.state as string | null,
     jurisdiction_id: row.jurisdiction_id as string | null,
     estimated_price: row.estimated_price as number | null,
     pricing_rule_id: row.pricing_rule_id as string | null,

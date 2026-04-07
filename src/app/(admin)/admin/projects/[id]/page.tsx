@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { UploadSLDForm } from "@/components/admin/UploadSLDForm";
 import { AssignDesignerForm } from "@/components/admin/AssignDesignerForm";
 import { ApproveDesignForm, RequestRevisionsForm } from "@/components/admin/WorkflowActionForms";
+import { TcdLibraryModal, type TcdLibraryItem } from "@/components/admin/TcdLibraryModal";
+import { RemoveTCDButton } from "@/components/admin/RemoveTCDButton";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectDetail, getDesigners } from "@/lib/queries/projects";
 import { getJurisdiction, type JurisdictionSummary } from "@/lib/queries/jurisdictions";
@@ -228,7 +230,7 @@ export default async function AdminProjectDetailPage({
 
   if (!project) notFound();
 
-  const [jurisdiction, packageJob, workflowJobsData] = await Promise.all([
+  const [jurisdiction, packageJob, workflowJobsData, tcdLibraryData] = await Promise.all([
     project.jurisdiction_id ? getJurisdiction(supabase, project.jurisdiction_id) : null,
     getLatestJob(supabase, id, "generate_permit_package"),
     supabase
@@ -237,9 +239,22 @@ export default async function AdminProjectDetailPage({
       .eq("project_id", id)
       .order("created_at", { ascending: false })
       .limit(25),
+    supabase
+      .from("tcd_library")
+      .select("id, code, description, category, state")
+      .eq("is_active", true)
+      .or(project.state ? `state.is.null,state.eq.${project.state}` : "state.is.null")
+      .order("code", { ascending: true }),
   ]);
 
   const workflowJobs = workflowJobsData.data ?? [];
+  const tcdLibrary: TcdLibraryItem[] = (tcdLibraryData.data ?? []).map((t: Record<string, unknown>) => ({
+    id: t.id as string,
+    code: t.code as string,
+    description: t.description as string,
+    category: t.category as string | null,
+    state: t.state as string | null,
+  }));
 
   // Fetch project files
   const { data: filesData } = await supabase
@@ -273,19 +288,23 @@ export default async function AdminProjectDetailPage({
     }
   }
 
-  // Fetch TCD selections
+  // Fetch TCD selections — include tcd_library_item_id for the "already selected" set
   const { data: tcdData } = await supabase
     .from("project_tcd_selections")
-    .select("id, sort_order, tcd_library ( code, description )")
+    .select("id, sort_order, tcd_library_item_id, tcd_library ( code, description )")
     .eq("project_id", id)
     .order("sort_order", { ascending: true });
 
   const selectedTCDs = (tcdData ?? []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
+    id: row.id as string,                    // selection row ID — used for Remove
+    tcdItemId: row.tcd_library_item_id as string,
     code: (row.tcd_library as { code: string; description: string } | null)?.code ?? "—",
     description:
       (row.tcd_library as { code: string; description: string } | null)?.description ?? "",
   }));
+
+  // Set of tcd_library IDs already added — passed to modal to hide already-selected items
+  const selectedTcdItemIds = new Set(selectedTCDs.map((t) => t.tcdItemId));
 
   // Fetch recent activity
   const { data: activityData } = await supabase
@@ -449,9 +468,12 @@ export default async function AdminProjectDetailPage({
               title="TCD Selection"
               description="Admin selects applicable TCD sheets from the system library."
               action={
-                <button className="text-xs font-medium text-primary hover:underline">
-                  + Select from Library
-                </button>
+                <TcdLibraryModal
+                  projectId={project.id}
+                  projectState={project.state}
+                  library={tcdLibrary}
+                  selectedIds={selectedTcdItemIds}
+                />
               }
             >
               {selectedTCDs.length === 0 ? (
@@ -467,7 +489,7 @@ export default async function AdminProjectDetailPage({
                         <p className="text-sm font-semibold text-ink">{tcd.code}</p>
                         <p className="text-xs text-muted">{tcd.description}</p>
                       </div>
-                      <button className="text-xs text-red-500 hover:underline flex-shrink-0">Remove</button>
+                      <RemoveTCDButton selectionId={tcd.id} projectId={project.id} />
                     </div>
                   ))}
                 </div>
@@ -650,7 +672,19 @@ export default async function AdminProjectDetailPage({
                   </div>
                   <GeneratePackageButton
                     projectId={project.id}
-                    canGenerate={project.status === "approved"}
+                    canGenerate={
+                      project.status === "approved" &&
+                      sldFiles.length > 0 &&
+                      selectedTCDs.length > 0 &&
+                      tcpFiles.length > 0
+                    }
+                    disabledReason={
+                      project.status !== "approved" ? "Design must be approved" :
+                      sldFiles.length === 0 ? "Upload at least 1 SLD sheet" :
+                      selectedTCDs.length === 0 ? "Select at least 1 TCD sheet" :
+                      tcpFiles.length === 0 ? "Upload at least 1 TCP sheet" :
+                      undefined
+                    }
                   />
                 </div>
               </div>

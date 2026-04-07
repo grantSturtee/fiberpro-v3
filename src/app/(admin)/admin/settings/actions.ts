@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 
 export type SettingsActionState = {
   error: string | null;
@@ -52,13 +53,14 @@ export async function addTCDEntry(
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${code.toLowerCase()}/${timestamp}_${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const storageClient = createServiceClient();
+    const { error: uploadError } = await storageClient.storage
       .from("tcd-pdfs")
       .upload(path, file, { contentType: "application/pdf", upsert: false });
 
     if (uploadError) {
-      console.error("TCD PDF upload error:", uploadError);
-      return { error: "PDF upload failed. Entry not saved." };
+      console.error("TCD PDF upload error:", uploadError.message, uploadError);
+      return { error: `PDF upload failed: ${uploadError.message}` };
     }
     storagePath = path;
   }
@@ -114,13 +116,14 @@ export async function updateTCDEntry(
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${code.toLowerCase()}/${timestamp}_${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const storageClient = createServiceClient();
+    const { error: uploadError } = await storageClient.storage
       .from("tcd-pdfs")
       .upload(path, file, { contentType: "application/pdf", upsert: false });
 
     if (uploadError) {
-      console.error("TCD PDF upload error:", uploadError);
-      return { error: "PDF upload failed." };
+      console.error("TCD PDF upload error:", uploadError.message, uploadError);
+      return { error: `PDF upload failed: ${uploadError.message}` };
     }
     storagePath = path;
   }
@@ -196,13 +199,14 @@ export async function addCoverTemplate(
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${timestamp}_${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const storageClient = createServiceClient();
+    const { error: uploadError } = await storageClient.storage
       .from("cover-templates")
       .upload(path, file, { contentType: "application/pdf", upsert: false });
 
     if (uploadError) {
-      console.error("Cover template upload error:", uploadError);
-      return { error: "File upload failed." };
+      console.error("Cover template upload error:", uploadError.message, uploadError);
+      return { error: `File upload failed: ${uploadError.message}` };
     }
     storagePath = path;
   }
@@ -258,10 +262,11 @@ export async function updateCoverTemplate(
     const timestamp = Date.now();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${timestamp}_${safeName}`;
-    const { error: uploadError } = await supabase.storage
+    const storageClient = createServiceClient();
+    const { error: uploadError } = await storageClient.storage
       .from("cover-templates")
       .upload(path, file, { contentType: "application/pdf", upsert: false });
-    if (uploadError) return { error: "File upload failed." };
+    if (uploadError) return { error: `File upload failed: ${uploadError.message}` };
     storagePath = path;
   }
 

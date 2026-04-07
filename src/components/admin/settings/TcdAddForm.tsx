@@ -58,7 +58,7 @@ export function TcdAddForm() {
   const borderStyle = { border: "1px solid #d4dde4" };
 
   return (
-    <form className="space-y-4" action={formAction} encType="multipart/form-data">
+    <form className="space-y-4" action={formAction}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5">
