@@ -89,15 +89,14 @@ export async function getAdminProjectList(
       created_at,
       updated_at,
       requested_approval_date,
-      companies ( name ),
-      designer:user_profiles!projects_assigned_designer_id_fkey ( display_name )
+      companies ( name )
     `)
     .order("updated_at", { ascending: false, nullsFirst: false });
 
-  if (error) {
-    console.error("getAdminProjectList error:", error);
-    return [];
-  }
+    if (error) {
+      console.error("getAdminProjectList error FULL:", JSON.stringify(error, null, 2));
+      return [];
+    }
 
   return (data ?? []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
@@ -112,8 +111,7 @@ export async function getAdminProjectList(
     company_id: row.company_id as string,
     company_name: (row.companies as { name: string } | null)?.name ?? null,
     assigned_designer_id: row.assigned_designer_id as string | null,
-    assigned_designer_name:
-      (row.designer as { display_name: string } | null)?.display_name ?? null,
+    assigned_designer_name: null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string | null,
     requested_approval_date: row.requested_approval_date as string | null,
@@ -212,8 +210,7 @@ export async function getProjectDetail(
       permit_notes,
       created_at,
       updated_at,
-      companies ( name ),
-      designer:user_profiles!projects_assigned_designer_id_fkey ( display_name )
+      companies ( name )
     `)
     .eq("id", projectId)
     .single();
@@ -250,8 +247,7 @@ export async function getProjectDetail(
     company_name: (row.companies as { name: string } | null)?.name ?? null,
     submitted_by: row.submitted_by as string | null,
     assigned_designer_id: row.assigned_designer_id as string | null,
-    assigned_designer_name:
-      (row.designer as { display_name: string } | null)?.display_name ?? null,
+    assigned_designer_name: null,
     assigned_at: row.assigned_at as string | null,
     submission_date: row.submission_date as string | null,
     authority_tracking_number: row.authority_tracking_number as string | null,
