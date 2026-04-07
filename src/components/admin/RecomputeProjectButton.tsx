@@ -9,14 +9,22 @@ import {
 
 const initialState: RecomputeProjectState = { error: null };
 
-function ComputeBtn() {
+function ComputeBtn({ highlighted }: { highlighted: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface text-dim hover:text-ink transition-colors disabled:opacity-40"
-      style={{ border: "1px solid #d4dde4" }}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
+        highlighted
+          ? "text-white"
+          : "bg-surface text-dim hover:text-ink"
+      }`}
+      style={
+        highlighted
+          ? { background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }
+          : { border: "1px solid #d4dde4" }
+      }
     >
       {pending ? (
         <>
@@ -32,8 +40,10 @@ function ComputeBtn() {
 
 export function RecomputeProjectButton({
   projectId,
+  highlighted = false,
 }: {
   projectId: string;
+  highlighted?: boolean;
 }) {
   const [state, formAction] = useActionState(recomputeProject, initialState);
 
@@ -41,7 +51,7 @@ export function RecomputeProjectButton({
     <div className="space-y-2">
       <form action={formAction}>
         <input type="hidden" name="project_id" value={projectId} />
-        <ComputeBtn />
+        <ComputeBtn highlighted={highlighted} />
       </form>
 
       {state.error && (

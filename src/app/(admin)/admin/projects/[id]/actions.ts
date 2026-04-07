@@ -29,6 +29,71 @@ async function getActorLabel(
   return data?.display_name || "Admin";
 }
 
+// ── Update Intake Details ─────────────────────────────────────────────────────
+// Admin edits the core intake fields on a project.
+
+export async function updateIntakeDetails(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const projectId = formData.get("project_id") as string;
+  if (!projectId) return { error: "Missing project ID." };
+
+  // Basic field hygiene
+  const job_name = (formData.get("job_name") as string)?.trim();
+  if (!job_name) return { error: "Job Name is required." };
+  const city = (formData.get("city") as string)?.trim();
+  if (!city) return { error: "City / Municipality is required." };
+  const job_address = (formData.get("job_address") as string)?.trim();
+  if (!job_address) return { error: "Job Address is required." };
+
+  const patch: Record<string, string | null> = {
+    job_name,
+    job_number_client:      (formData.get("job_number_client") as string)?.trim()      || null,
+    rhino_pm:               (formData.get("rhino_pm") as string)?.trim()               || null,
+    comcast_manager:        (formData.get("comcast_manager") as string)?.trim()        || null,
+    submitted_to_fiberpro:  (formData.get("submitted_to_fiberpro") as string)          || null,
+    requested_approval_date:(formData.get("requested_approval_date") as string)        || null,
+    type_of_plan:           (formData.get("type_of_plan") as string)                   || null,
+    job_type:               (formData.get("job_type") as string)                       || null,
+    authority_type:         (formData.get("authority_type") as string)                 || null,
+    county:                 (formData.get("county") as string)?.trim()                 || null,
+    township:               (formData.get("township") as string)?.trim()               || null,
+    city,
+    state:                  (formData.get("state") as string)                          || null,
+    job_address,
+    notes:                  (formData.get("notes") as string)?.trim()                  || null,
+  };
+
+  const { error: updateError } = await supabase
+    .from("projects")
+    .update(patch)
+    .eq("id", projectId);
+
+  if (updateError) {
+    console.error("updateIntakeDetails error:", updateError);
+    return { error: "Failed to save changes." };
+  }
+
+  const actorLabel = await getActorLabel(supabase, userData.user.id);
+
+  await supabase.from("project_activity").insert({
+    project_id: projectId,
+    actor_id: userData.user.id,
+    actor_label: actorLabel,
+    action: "Updated intake details",
+    metadata: {},
+  });
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  return { error: null, success: true };
+}
+
 // ── Upload SLD ────────────────────────────────────────────────────────────────
 // Admin uploads a Street Layout Diagram for a project.
 // Stores file in project-files bucket and creates a project_files record.
@@ -239,13 +304,23 @@ export async function approveDesign(
   // Auto-enqueue permit package generation on approval.
   // Metadata is minimal here — admin can trigger a full enqueue from the UI
   // which includes TCD/file details.
-  await enqueueWorkflowJob(
+  const packageJobId = await enqueueWorkflowJob(
     supabase,
     projectId,
     "generate_permit_package",
     { project_id: projectId, trigger: "design_approved" },
     userData.user.id
   );
+
+  if (packageJobId) {
+    await supabase.from("project_activity").insert({
+      project_id: projectId,
+      actor_id: userData.user.id,
+      actor_label: actorLabel,
+      action: "Package generation queued",
+      metadata: { job_id: packageJobId, trigger: "design_approved" },
+    });
+  }
 
   revalidatePath(`/admin/projects/${projectId}`);
   return { error: null, success: true };
@@ -324,6 +399,8 @@ export async function enqueuePackageGeneration(
   if (!project) return { error: "Project not found." };
   if (project.status !== "approved") return { error: "Design must be approved before generating package." };
 
+  const actorLabel = await getActorLabel(supabase, userData.user.id);
+
   // ── Fetch jurisdiction ─────────────────────────────────────────────────────
   let jurisdiction = { id: null as string | null, authority_name: null as string | null, submission_method: null as string | null };
   let requiredDocuments: string[] = [];
@@ -391,6 +468,14 @@ export async function enqueuePackageGeneration(
   );
 
   if (!jobId) return { error: "Failed to enqueue job. Please try again." };
+
+  await supabase.from("project_activity").insert({
+    project_id: projectId,
+    actor_id: userData.user.id,
+    actor_label: actorLabel,
+    action: "Package generation queued",
+    metadata: { job_id: jobId },
+  });
 
   revalidatePath(`/admin/projects/${projectId}`);
   return { error: null, jobId };

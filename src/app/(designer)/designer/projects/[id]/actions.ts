@@ -186,6 +186,7 @@ export async function submitForReview(
   });
 
   revalidatePath(`/designer/projects/${projectId}`);
+  revalidatePath(`/admin/projects/${projectId}`);
   return { error: null, success: true };
 }
 

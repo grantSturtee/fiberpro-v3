@@ -58,7 +58,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { job_id, status, result = null, error = null } = body;
+  const rawJobId = body.job_id;
+  const job_id =
+    typeof rawJobId === "string" ? rawJobId.replace(/^=/, "") : rawJobId;
+
+  const { status, result = null, error = null } = body;
+
+  const normalizedResult =
+  result && typeof result === "object"
+    ? {
+        ...result,
+        file_path:
+          typeof result.file_path === "string"
+            ? result.file_path.replace(/^=/, "")
+            : result.file_path,
+      }
+    : result;
 
   if (!job_id || typeof job_id !== "string") {
     return NextResponse.json({ error: "job_id is required" }, { status: 400 });
@@ -80,6 +95,8 @@ export async function POST(req: NextRequest) {
     .eq("id", job_id)
     .single();
 
+  console.log("workflow complete lookup", { job_id, job, fetchError });
+
   if (fetchError || !job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
@@ -94,7 +111,7 @@ export async function POST(req: NextRequest) {
     .from("workflow_jobs")
     .update({
       status,
-      result: result ?? null,
+      result: normalizedResult ?? null,
       error: error ?? null,
       updated_at: now,
       ...(status === "completed" ? { completed_at: now } : {}),
@@ -108,31 +125,50 @@ export async function POST(req: NextRequest) {
 
   // ── 4. Post-completion side-effects ─────────────────────────────────────────
 
-  if (job.job_type === "generate_permit_package" && status === "completed") {
-    const filePath = result?.file_path;
-    if (!filePath || typeof filePath !== "string") {
-      console.warn(
-        `workflow complete: generate_permit_package job ${job_id} completed but result.file_path is missing`
-      );
-    } else {
-      const fileName =
-        (result?.file_name && typeof result.file_name === "string")
-          ? result.file_name
-          : filePath.split("/").pop() ?? "permit_package.pdf";
+  if (job.job_type === "generate_permit_package") {
+    if (status === "completed") {
+      const filePath = normalizedResult?.file_path;
+      if (!filePath || typeof filePath !== "string") {
+        console.warn(
+          `workflow complete: generate_permit_package job ${job_id} completed but result.file_path is missing`
+        );
+      } else {
+        const fileName =
+          (result?.file_name && typeof result.file_name === "string")
+            ? result.file_name
+            : filePath.split("/").pop() ?? "permit_package.pdf";
 
-      const { error: fileError } = await supabase.from("project_files").insert({
-        project_id: job.project_id,
-        file_category: "permit_package",
-        file_type: "generated",
-        file_name: fileName,
-        storage_path: filePath,
-        uploader_label: "n8n",
-      });
+        const { error: fileError } = await supabase.from("project_files").insert({
+          project_id: job.project_id,
+          file_category: "permit_package",
+          file_type: "generated",
+          file_name: fileName,
+          storage_path: filePath,
+          uploader_label: "n8n",
+        });
 
-      if (fileError) {
-        // Log but don't fail the response — job status is already written.
-        console.error("workflow complete: failed to create project_files row:", fileError);
+        if (fileError) {
+          // Log but don't fail the response — job status is already written.
+          console.error("workflow complete: failed to create project_files row:", fileError);
+        }
       }
+
+      await supabase.from("project_activity").insert({
+        project_id: job.project_id,
+        actor_id: null,
+        actor_label: "System",
+        action: "Permit package generated",
+        metadata: { job_id },
+      });
+    } else {
+      // status === "failed"
+      await supabase.from("project_activity").insert({
+        project_id: job.project_id,
+        actor_id: null,
+        actor_label: "System",
+        action: "Package generation failed",
+        metadata: { job_id, error: error ?? null },
+      });
     }
   }
 

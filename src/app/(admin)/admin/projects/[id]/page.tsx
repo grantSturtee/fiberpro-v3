@@ -3,21 +3,23 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ProjectStatusBadge, BillingStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { UploadSLDForm } from "@/components/admin/UploadSLDForm";
 import { AssignDesignerForm } from "@/components/admin/AssignDesignerForm";
 import { ApproveDesignForm, RequestRevisionsForm } from "@/components/admin/WorkflowActionForms";
 import { TcdLibraryModal, type TcdLibraryItem } from "@/components/admin/TcdLibraryModal";
 import { RemoveTCDButton } from "@/components/admin/RemoveTCDButton";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { getProjectDetail, getDesigners } from "@/lib/queries/projects";
 import { getJurisdiction, type JurisdictionSummary } from "@/lib/queries/jurisdictions";
 import { RecomputeProjectButton } from "@/components/admin/RecomputeProjectButton";
 import { GeneratePackageButton } from "@/components/admin/GeneratePackageButton";
+import { RailFileNav } from "@/components/admin/RailFileNav";
+import { EditIntakeForm } from "@/components/admin/EditIntakeForm";
 import { getLatestJob } from "@/lib/workflow/enqueue";
 import { JOB_STATUS_LABEL, JOB_STATUS_COLOR, type WorkflowJobStatus } from "@/types/workflow";
-import { formatDate, humanize } from "@/lib/utils/format";
-import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES, GENERATED_FILE_CATEGORIES } from "@/lib/constants/files";
+import { formatDate, formatDateTime, humanize } from "@/lib/utils/format";
+import { CLIENT_FILE_CATEGORIES, FILE_CATEGORIES, FILE_CATEGORY_LABELS, GENERATED_FILE_CATEGORIES } from "@/lib/constants/files";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -93,10 +95,12 @@ function ProjectIntelligenceSection({
   projectId,
   jurisdiction,
   estimatedPrice,
+  isStale,
 }: {
   projectId: string;
   jurisdiction: JurisdictionSummary | null;
   estimatedPrice: number | null;
+  isStale: boolean;
 }) {
   const requiredDocs = jurisdiction
     ? REQUIRED_DOC_FLAGS.filter((f) => jurisdiction[f.key] === true)
@@ -198,11 +202,23 @@ function ProjectIntelligenceSection({
         </div>
 
         {/* Recalculate */}
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4 flex items-center justify-between gap-4">
-          <p className="text-xs text-muted">
-            Triggers: jurisdiction match + price calculation + workflow log.
-          </p>
-          <RecomputeProjectButton projectId={projectId} />
+        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4 space-y-3">
+          {isStale && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden className="flex-shrink-0">
+                <path d="M6.5 1.5L11.5 10.5H1.5L6.5 1.5Z" fill="#fef08a" stroke="#d97706" strokeWidth="1.2" strokeLinejoin="round" />
+                <path d="M6.5 5.5v2.5" stroke="#d97706" strokeWidth="1.2" strokeLinecap="round" />
+                <circle cx="6.5" cy="9.5" r=".6" fill="#d97706" />
+              </svg>
+              <p className="text-xs text-amber-700">Intake data changed — recalculate to refresh.</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-muted">
+              Jurisdiction match + price calculation + workflow log.
+            </p>
+            <RecomputeProjectButton projectId={projectId} highlighted={isStale} />
+          </div>
         </div>
       </div>
     </SectionCard>
@@ -230,12 +246,23 @@ export default async function AdminProjectDetailPage({
 
   if (!project) notFound();
 
-  const [jurisdiction, packageJob, workflowJobsData, tcdLibraryData] = await Promise.all([
+  const [jurisdiction, packageJob, latestCompletedPackageJobData, workflowJobsData, tcdLibraryData] = await Promise.all([
     project.jurisdiction_id ? getJurisdiction(supabase, project.jurisdiction_id) : null,
     getLatestJob(supabase, id, "generate_permit_package"),
+    // Separate query for latest *completed* package job — used to drive View Package action.
+    // packageJob above tracks the most recent job overall (may be queued/running/failed).
     supabase
       .from("workflow_jobs")
-      .select("id, job_type, status, error, created_at, updated_at")
+      .select("id, status, result, updated_at, created_at")
+      .eq("project_id", id)
+      .eq("job_type", "generate_permit_package")
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("workflow_jobs")
+      .select("id, job_type, status, error, created_at, updated_at, completed_at, result")
       .eq("project_id", id)
       .order("created_at", { ascending: false })
       .limit(25),
@@ -247,7 +274,20 @@ export default async function AdminProjectDetailPage({
       .order("code", { ascending: true }),
   ]);
 
+  const latestCompletedPackageJob = latestCompletedPackageJobData.data ?? null;
   const workflowJobs = workflowJobsData.data ?? [];
+
+  // Staleness: intake data was edited after the last project_computed job ran.
+  // computeProject writes the workflow_jobs row AFTER updating the project row,
+  // so project_computed.created_at is always slightly after the compute's
+  // project.updated_at bump. A subsequent intake edit bumps updated_at again,
+  // making it newer than the last compute job.
+  const lastComputeJob = workflowJobs.find(
+    (j) => (j.job_type as string) === "project_computed"
+  );
+  const isIntelligenceStale =
+    !lastComputeJob ||
+    new Date(project.updated_at) > new Date(lastComputeJob.created_at);
   const tcdLibrary: TcdLibraryItem[] = (tcdLibraryData.data ?? []).map((t: Record<string, unknown>) => ({
     id: t.id as string,
     code: t.code as string,
@@ -277,14 +317,31 @@ export default async function AdminProjectDetailPage({
     (GENERATED_FILE_CATEGORIES as readonly string[]).includes(f.file_category as string)
   );
 
-  // Generate signed download URLs (1 hour TTL)
+  // Generate signed download URLs (1 hour TTL).
+  // Service client bypasses storage RLS — session client returns "Object not found"
+  // for files the anon/user policy does not cover.
+  const storageClient = createServiceClient();
   const downloadUrls: Record<string, string> = {};
   for (const file of files) {
-    const { data: urlData } = await supabase.storage
+    const { data: urlData } = await storageClient.storage
       .from("project-files")
       .createSignedUrl((file as { storage_path: string }).storage_path, 3600);
     if (urlData?.signedUrl) {
       downloadUrls[file.id] = urlData.signedUrl;
+    }
+  }
+
+  // Signed URL for the latest *completed* permit package (from n8n result payload).
+  // Uses latestCompletedPackageJob, not packageJob, so a newer queued/failed job
+  // does not hide an already-completed package.
+  let packageDownloadUrl: string | null = null;
+  if (latestCompletedPackageJob) {
+    const filePath = (latestCompletedPackageJob.result as Record<string, unknown> | null)?.file_path;
+    if (filePath && typeof filePath === "string") {
+      const { data: pkgUrlData } = await storageClient.storage
+        .from("project-files")
+        .createSignedUrl(filePath.replace(/^\/+/, ""), 3600);
+      packageDownloadUrl = pkgUrlData?.signedUrl ?? null;
     }
   }
 
@@ -336,6 +393,19 @@ export default async function AdminProjectDetailPage({
 
   const inReview = project.status === "waiting_for_admin_review";
 
+  // Permit Package card prerequisites
+  const prereqs = {
+    sld:      sldFiles.length > 0,
+    tcd:      selectedTCDs.length > 0,
+    tcp:      tcpFiles.length > 0,
+    approved: !["intake_review", "waiting_on_client", "ready_for_assignment",
+                "assigned", "in_design", "waiting_for_admin_review",
+                "revisions_required", "cancelled"].includes(project.status),
+  };
+  const prereqsMet = prereqs.sld && prereqs.tcd && prereqs.tcp && prereqs.approved;
+  const hasCompletedPackage = !!latestCompletedPackageJob && !!packageDownloadUrl;
+
+
   return (
     <div className="h-full flex flex-col">
 
@@ -371,71 +441,70 @@ export default async function AdminProjectDetailPage({
       </div>
 
       {/* ── Two-column body ── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex gap-0 h-full">
+      <div className="flex-1 flex min-h-0">
+        <div className="flex gap-0 min-h-0 flex-1">
 
           {/* ── Left: main workflow sections ── */}
-          <div className="flex-1 min-w-0 p-8 space-y-6">
+          <div className="flex-1 min-w-0 overflow-y-auto p-8 space-y-6">
 
             {/* 1. Core Intake Data */}
-            <SectionCard
-              title="Intake & Core Data"
-              description="Information submitted at project intake."
-            >
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
-                <FieldPair label="Job Number (Client)"   value={project.job_number_client} />
-                <FieldPair label="Rhino PM"              value={project.rhino_pm} />
-                <FieldPair label="Comcast Manager"       value={project.comcast_manager} />
-                <FieldPair label="Submitted to FiberPro" value={formatDate(project.submitted_to_fiberpro)} />
-                <FieldPair label="Requested Approval"    value={formatDate(project.requested_approval_date)} />
-                <FieldPair label="Type of Plan"          value={humanize(project.type_of_plan)} />
-                <FieldPair label="Job Type"              value={humanize(project.job_type)} />
-                <FieldPair label="Authority"             value={authorityDisplay} />
-                <FieldPair label="County"                value={project.county} />
-                <FieldPair label="Township"              value={project.township} />
-                <FieldPair label="City / Municipality"   value={project.city} />
-                <FieldPair label="Job Address"           value={project.job_address} />
-              </div>
-              {project.notes && (
-                <div className="mt-4 pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">Notes</p>
-                  <p className="text-sm text-ink">{project.notes}</p>
-                </div>
-              )}
-            </SectionCard>
+            <EditIntakeForm project={project} />
 
             {/* 2. Project Intelligence */}
             <ProjectIntelligenceSection
               projectId={project.id}
               jurisdiction={jurisdiction}
               estimatedPrice={project.estimated_price}
+              isStale={isIntelligenceStale}
             />
 
             {/* 3. Client Intake Files */}
-            {intakeFiles.length > 0 && (
-              <SectionCard
-                title="Client Submission Files"
-                description="Files attached by the client at intake. Read-only reference for internal use."
-              >
+            <SectionCard id="section-intake" title="Client Intake Files">
+              {intakeFiles.length === 0 ? (
+                <p className="text-sm text-muted">No intake files attached yet.</p>
+              ) : (
                 <div className="divide-y divide-surface">
                   {intakeFiles.map((f) => (
-                    <FileRow
-                      key={f.id}
-                      file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
-                      downloadUrl={downloadUrls[f.id]}
-                    />
+                    <div key={f.id} className="flex items-center justify-between gap-4 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[9px] font-bold text-red-600 tracking-tight">PDF</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-ink truncate">{f.file_name}</p>
+                          <p className="text-xs text-muted">
+                            {FILE_CATEGORY_LABELS[f.file_category as keyof typeof FILE_CATEGORY_LABELS] ?? f.file_category}
+                            {f.uploader_label ? ` · ${f.uploader_label}` : ""}
+                            {" · "}
+                            {formatDateTime(f.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      {downloadUrls[f.id] ? (
+                        <a
+                          href={downloadUrls[f.id]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline flex-shrink-0"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-xs text-faint flex-shrink-0">—</span>
+                      )}
+                    </div>
                   ))}
                 </div>
-              </SectionCard>
-            )}
+              )}
+            </SectionCard>
 
             {/* 4. SLD Files */}
             <SectionCard
+              id="section-sld"
               title="SLD Sheets"
-              description="Street-level diagrams uploaded by admin. Used by designer as reference."
             >
               {sldFiles.length > 0 && (
-                <div className="divide-y divide-surface mb-5">
+                <div className="divide-y divide-surface mb-4">
                   {sldFiles.map((f) => (
                     <FileRow
                       key={f.id}
@@ -445,28 +514,13 @@ export default async function AdminProjectDetailPage({
                   ))}
                 </div>
               )}
-
-              {sldFiles.length === 0 && (
-                <div className="mb-5">
-                  <EmptyState
-                    title="No SLD sheets uploaded"
-                    description="Upload SLD sheets before assigning to a designer."
-                  />
-                </div>
-              )}
-
-              <div className="pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
-                <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">
-                  Upload SLD Sheet
-                </p>
-                <UploadSLDForm projectId={project.id} />
-              </div>
+              <UploadSLDForm projectId={project.id} />
             </SectionCard>
 
             {/* 5. TCD Selection */}
             <SectionCard
+              id="section-tcd"
               title="TCD Selection"
-              description="Admin selects applicable TCD sheets from the system library."
               action={
                 <TcdLibraryModal
                   projectId={project.id}
@@ -477,10 +531,7 @@ export default async function AdminProjectDetailPage({
               }
             >
               {selectedTCDs.length === 0 ? (
-                <EmptyState
-                  title="No TCD sheets selected"
-                  description="Select one or more TCD sheets from the library before generating the package."
-                />
+                <p className="text-sm text-muted">No TCD sheets selected yet.</p>
               ) : (
                 <div className="space-y-2">
                   {selectedTCDs.map((tcd) => (
@@ -532,15 +583,12 @@ export default async function AdminProjectDetailPage({
 
             {/* 7. TCP Design Files */}
             <SectionCard
+              id="section-tcp"
               title="TCP Design Files"
-              description="Traffic Control Plan sheets uploaded by the assigned designer."
             >
               {designerName ? (
                 tcpFiles.length === 0 ? (
-                  <EmptyState
-                    title="Awaiting designer upload"
-                    description={`${designerName} has not uploaded TCP sheets yet.`}
-                  />
+                  <p className="text-sm text-muted">Awaiting TCP upload from {designerName}.</p>
                 ) : (
                   <div className="divide-y divide-surface">
                     {tcpFiles.map((f) => (
@@ -553,10 +601,7 @@ export default async function AdminProjectDetailPage({
                   </div>
                 )
               ) : (
-                <EmptyState
-                  title="No designer assigned"
-                  description="Assign a designer before TCP files can be uploaded."
-                />
+                <p className="text-sm text-muted">Assign a designer before TCP files can be uploaded.</p>
               )}
             </SectionCard>
 
@@ -614,37 +659,114 @@ export default async function AdminProjectDetailPage({
               )}
             </SectionCard>
 
-            {/* 9. Generated Files */}
-            {generatedFiles.length > 0 && (
-              <SectionCard
-                title="Generated Files"
-                description="Outputs produced by the automated permit package pipeline."
-              >
-                <div className="divide-y divide-surface">
-                  {generatedFiles.map((f) => (
-                    <FileRow
-                      key={f.id}
-                      file={f as { id: string; file_name: string; created_at: string; uploader_label?: string | null }}
-                      downloadUrl={downloadUrls[f.id]}
-                    />
+            {/* 9. Package History */}
+            {generatedFiles.length > 0 && (() => {
+              // generatedFiles is ordered ascending (oldest first).
+              // Newest = last element = current version = highest version number.
+              const total = generatedFiles.length;
+              // Render newest-first for the version history view.
+              const newest = [...generatedFiles].reverse();
+              return (
+                <SectionCard id="section-generated" title="Package History">
+                  <div className="divide-y divide-surface">
+                    {newest.map((f, i) => {
+                      const versionNumber = total - i; // newest → total, oldest → 1
+                      const isCurrent = i === 0;
+                      const url = downloadUrls[f.id];
+                      return (
+                        <div key={f.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {/* Version label */}
+                            {isCurrent ? (
+                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5 flex-shrink-0 whitespace-nowrap">
+                                Current
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-muted tabular-nums flex-shrink-0 w-[44px] text-right">
+                                v{versionNumber}
+                              </span>
+                            )}
+                            {/* Timestamp */}
+                            <p className={`text-xs tabular-nums flex-shrink-0 ${isCurrent ? "text-ink font-medium" : "text-muted"}`}>
+                              {formatDateTime(f.created_at)}
+                            </p>
+                          </div>
+                          {/* Action */}
+                          {url ? (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`text-xs flex-shrink-0 hover:underline ${isCurrent ? "text-primary font-medium" : "text-dim"}`}
+                            >
+                              View
+                            </a>
+                          ) : (
+                            <span className="text-xs text-faint flex-shrink-0">—</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SectionCard>
+              );
+            })()}
+
+            {/* 10. Permit Package */}
+            <SectionCard title="Permit Package">
+              <div className="space-y-4">
+
+                {/* Prerequisite checklist */}
+                <div className="flex items-center gap-5 flex-wrap">
+                  {([
+                    { label: "SLD Sheets",      met: prereqs.sld },
+                    { label: "TCD Selection",   met: prereqs.tcd },
+                    { label: "TCP Sheets",       met: prereqs.tcp },
+                    { label: "Admin Approval",  met: prereqs.approved },
+                  ] as { label: string; met: boolean }[]).map(({ label, met }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      {met ? (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                          <circle cx="7" cy="7" r="6" fill="#dcfce7" />
+                          <path d="M4 7l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                          <circle cx="7" cy="7" r="6" stroke="#d1d5db" strokeWidth="1.2" />
+                        </svg>
+                      )}
+                      <span className={`text-xs ${met ? "text-ink" : "text-muted"}`}>{label}</span>
+                    </div>
                   ))}
                 </div>
-              </SectionCard>
-            )}
 
-            {/* 10. Permit Package Generation */}
-            <SectionCard
-              title="Permit Package"
-              description="Assembled by n8n: cover sheet + TCP sheets + SLD sheets + selected TCD sheets."
-            >
-              <div className="space-y-4">
-                {/* Job status */}
-                {packageJob && (
+                {/* Completed package — primary state */}
+                {hasCompletedPackage && (
+                  <div className="flex items-center justify-between gap-4 bg-emerald-50 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800">Package ready</p>
+                      <p className="text-xs text-emerald-600 mt-0.5">
+                        Generated {formatDate(latestCompletedPackageJob!.updated_at ?? latestCompletedPackageJob!.created_at)}
+                      </p>
+                    </div>
+                    <a
+                      href={packageDownloadUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white"
+                      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+                    >
+                      View Package
+                    </a>
+                  </div>
+                )}
+
+                {/* In-flight job status (pending / running / failed — not completed) */}
+                {packageJob && packageJob.status !== "completed" && (
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                        packageJob.status === "completed" ? "bg-emerald-500" :
-                        packageJob.status === "failed" ? "bg-red-500" :
+                        packageJob.status === "failed"  ? "bg-red-500" :
                         packageJob.status === "running" ? "bg-blue-500 animate-pulse" :
                         "bg-amber-400"
                       }`}
@@ -659,34 +781,28 @@ export default async function AdminProjectDetailPage({
                   </div>
                 )}
 
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-dim">
-                      {project.status === "approved"
-                        ? "Design approved. Enqueue the generation job — n8n will assemble and store the package."
-                        : "Requires: SLD sheets · TCD selection · TCP sheets · Admin approval."}
+                {/* Generate / Regenerate action row */}
+                <div className="flex items-center justify-between gap-4 pt-1">
+                  {(hasCompletedPackage || !prereqsMet) && (
+                    <p className="text-xs text-muted">
+                      {hasCompletedPackage
+                        ? "Regenerate to rebuild the package with current files."
+                        : "Complete prerequisites above to enable generation."}
                     </p>
-                    <p className="text-xs text-muted mt-1">
-                      Generation runs as a background n8n job. No files are produced by the app.
-                    </p>
-                  </div>
+                  )}
                   <GeneratePackageButton
                     projectId={project.id}
-                    canGenerate={
-                      project.status === "approved" &&
-                      sldFiles.length > 0 &&
-                      selectedTCDs.length > 0 &&
-                      tcpFiles.length > 0
-                    }
+                    canGenerate={prereqsMet && project.status === "approved"}
                     disabledReason={
-                      project.status !== "approved" ? "Design must be approved" :
-                      sldFiles.length === 0 ? "Upload at least 1 SLD sheet" :
-                      selectedTCDs.length === 0 ? "Select at least 1 TCD sheet" :
-                      tcpFiles.length === 0 ? "Upload at least 1 TCP sheet" :
+                      !prereqs.approved ? "Design must be approved" :
+                      !prereqs.sld      ? "Upload at least 1 SLD sheet" :
+                      !prereqs.tcd      ? "Select at least 1 TCD sheet" :
+                      !prereqs.tcp      ? "Upload at least 1 TCP sheet" :
                       undefined
                     }
                   />
                 </div>
+
               </div>
             </SectionCard>
 
@@ -721,7 +837,6 @@ export default async function AdminProjectDetailPage({
             {/* 11. Workflow Activity */}
             <SectionCard
               title="Workflow Activity"
-              description="All automation jobs for this project."
               action={
                 <Link href={`/admin/workflows?project=${id}`} className="text-xs text-blue-600 hover:underline">
                   Full list
@@ -731,17 +846,17 @@ export default async function AdminProjectDetailPage({
               {workflowJobs.length === 0 ? (
                 <p className="text-sm text-muted">No workflow jobs yet.</p>
               ) : (
-                <div className="divide-y divide-surface -mx-6 px-0">
+                <div className="divide-y divide-surface -mx-6 px-0 max-h-[320px] overflow-y-auto">
                   {workflowJobs.map((job) => {
                     const s = job.status as WorkflowJobStatus;
                     return (
-                      <div key={job.id} className="flex items-center justify-between gap-4 px-6 py-2.5">
+                      <div key={job.id} className="flex items-center justify-between gap-4 px-6 py-2">
                         <div className="min-w-0">
-                          <p className="text-sm text-ink font-medium">
+                          <p className="text-xs text-ink font-medium">
                             {JOB_TYPE_LABELS_INLINE[job.job_type as string] ?? job.job_type}
                           </p>
-                          <p className="text-xs text-muted">{formatDate(job.created_at)}</p>
-                          {job.error && <p className="text-xs text-red-500 mt-0.5">{job.error}</p>}
+                          <p className="text-[11px] text-muted">{formatDateTime(job.created_at)}</p>
+                          {job.error && <p className="text-[11px] text-red-500 mt-0.5">{job.error}</p>}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <span className={`text-xs font-medium ${JOB_STATUS_COLOR[s] ?? "text-muted"}`}>
@@ -759,21 +874,21 @@ export default async function AdminProjectDetailPage({
             </SectionCard>
           </div>
 
-          {/* ── Right: status sidebar ── */}
-          <div className="w-[300px] flex-shrink-0 border-l border-surface bg-canvas">
-            <div className="p-5 space-y-6 sticky top-0">
+          {/* ── Right: status rail ── */}
+          <div className="w-[200px] min-w-[160px] flex-shrink border-l border-surface bg-canvas overflow-y-auto">
+            <div className="p-3 space-y-3">
 
-              {/* Designer summary */}
+              {/* Designer */}
               <div>
-                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Designer</p>
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">Designer</p>
                 {designerName ? (
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-semibold text-primary">{designerInitials}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
+                      <span className="text-[8px] font-semibold text-primary">{designerInitials}</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-ink">{designerName}</p>
-                      <p className="text-xs text-muted">Assigned {formatDate(project.assigned_at)}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-ink truncate">{designerName}</p>
+                      <p className="text-[10px] text-muted leading-tight">Assigned {formatDate(project.assigned_at)}</p>
                     </div>
                   </div>
                 ) : (
@@ -782,66 +897,63 @@ export default async function AdminProjectDetailPage({
               </div>
 
               {/* Billing */}
-              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5">
-                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Billing</p>
+              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-3">
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">Billing</p>
                 <div className="flex items-center justify-between gap-2">
                   <BillingStatusBadge status={project.billing_status} />
-                  <button className="text-xs text-muted hover:text-primary transition-colors">Manage</button>
+                  <button className="text-[10px] text-muted hover:text-primary transition-colors">Manage</button>
                 </div>
               </div>
 
-              {/* Files summary */}
-              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5">
-                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Files</p>
-                <div className="space-y-1.5 text-xs text-dim">
-                  <div className="flex justify-between">
-                    <span>SLD Sheets</span>
-                    <span className="font-medium text-ink">{sldFiles.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>TCP Sheets</span>
-                    <span className="font-medium text-ink">{tcpFiles.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>TCD Selected</span>
-                    <span className="font-medium text-ink">{selectedTCDs.length}</span>
-                  </div>
-                </div>
+              {/* Files — click to jump to section */}
+              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-3">
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">Files</p>
+                <RailFileNav items={[
+                  { label: "Intake Files",  count: intakeFiles.length,   targetId: "section-intake" },
+                  { label: "SLD Sheets",    count: sldFiles.length,      targetId: "section-sld" },
+                  { label: "TCP Sheets",    count: tcpFiles.length,      targetId: "section-tcp" },
+                  { label: "TCD Selected",  count: selectedTCDs.length,  targetId: "section-tcd" },
+                  ...(generatedFiles.length > 0
+                    ? [{ label: "Generated",  count: generatedFiles.length, targetId: "section-generated" }]
+                    : []
+                  ),
+                ]} />
               </div>
 
-              {/* Activity feed */}
-              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5">
-                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-3">Activity</p>
+              {/* Activity */}
+              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-3">
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">Activity</p>
                 {activity.length === 0 ? (
                   <p className="text-xs text-muted">No activity yet.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-0.5">
                     {activity.map((entry) => (
-                      <div key={entry.id} className="flex gap-2.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rule mt-1.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-ink">
+                      <div key={entry.id} className="flex gap-1.5">
+                        <div className="w-1 h-1 rounded-full bg-rule mt-1 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-ink leading-snug">
                             <span className="font-medium">{entry.actor_label || "System"}</span>{" "}
                             {entry.action}
                           </p>
-                          <p className="text-[10px] text-muted mt-0.5">{formatDate(entry.created_at)}</p>
+                          <p className="text-[10px] text-faint">{formatDate(entry.created_at)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-
-                {/* Comment area */}
-                <div className="mt-4 pt-3" style={{ borderTop: "1px solid #e3e9ec" }}>
-                  <p className="text-xs text-muted mb-2">Add comment</p>
-                  <textarea
-                    rows={2}
-                    className="w-full text-xs text-ink bg-card rounded-lg px-2.5 py-2 resize-none outline-none"
-                    style={{ border: "1px solid #d4dde4" }}
-                    placeholder="Leave a note…"
-                  />
-                </div>
               </div>
+
+              {/* Note */}
+              <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-3">
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">Note</p>
+                <textarea
+                  rows={2}
+                  className="w-full text-[11px] text-ink bg-card rounded-md px-2 py-1.5 resize-none outline-none"
+                  style={{ border: "1px solid #d4dde4" }}
+                  placeholder="Leave a note…"
+                />
+              </div>
+
             </div>
           </div>
         </div>

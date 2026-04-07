@@ -40,7 +40,22 @@ export async function enqueueWorkflowJob(
     return null;
   }
 
-  return data.id;
+  const jobId = data.id;
+
+  // Temporary: directly trigger n8n webhook on enqueue for end-to-end validation.
+  // Remove once a proper worker/poller is in place.
+  const webhookUrl = process.env.N8N_WEBHOOK_URL;
+  if (webhookUrl) {
+    fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, project_id: projectId, job_type: jobType }),
+    }).catch((err) => {
+      console.error(`enqueueWorkflowJob: n8n webhook failed for job ${jobId}:`, err);
+    });
+  }
+
+  return jobId;
 }
 
 /**

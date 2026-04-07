@@ -262,17 +262,16 @@ export function SubmitProjectForm({
             />
           </div>
 
-          {/* Attachment upload — TODO: wire to Supabase Storage in a later phase */}
+          {/* Attachment note — uploads available on project detail after submission */}
           <div>
             <label className="block text-xs font-medium text-dim mb-1.5">Attachments</label>
             <div
-              className="rounded-xl px-6 py-8 text-center bg-canvas"
+              className="rounded-xl px-6 py-5 bg-canvas"
               style={{ border: "1.5px dashed #d4dde4" }}
             >
-              <p className="text-sm font-medium text-dim mb-1">File attachments</p>
+              <p className="text-sm font-medium text-dim mb-1">Upload after submitting</p>
               <p className="text-xs text-muted">
-                Attachment upload will be available in a future update.
-                Submit your project now — attachments can be added by your FiberPro contact.
+                Reference files (PDFs) can be uploaded from the project detail page once your project has been submitted.
               </p>
             </div>
           </div>
