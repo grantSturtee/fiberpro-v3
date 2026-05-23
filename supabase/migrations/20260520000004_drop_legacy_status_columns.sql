@@ -1,0 +1,41 @@
+-- =============================================================================
+-- DO NOT APPLY: legacy columns still being read by un-migrated code paths.
+-- Apply only after all read/filter paths are switched to unified_status.
+-- =============================================================================
+-- This migration drops the legacy two-dimensional status columns from
+-- projects in favor of the `unified_status` column added in
+-- 20260520000001_unified_project_status.sql.
+--
+-- Pass 2 introduced dual-writes (both legacy and unified columns are updated
+-- on every transition), but many read/filter sites still consult the legacy
+-- columns. Before applying this migration, verify that no code reads from
+-- projects.status or projects.billing_status. Grep targets:
+--
+--     .eq("status",      .in("status",      .neq("status",
+--     .eq("billing_status",  .in("billing_status",
+--     project.status     p.status     row.status
+--     project.billing_status   p.billing_status
+--
+-- across src/ — every remaining hit must be migrated to unified_status (or
+-- to the orthogonal billing_on_hold boolean for the hold case) before this
+-- migration is safe to apply.
+--
+-- The SQL below is intentionally commented out so that `supabase db push`
+-- does not apply it accidentally. To run: remove the leading `-- ` from each
+-- statement and apply via the local-first-then-remote pattern.
+-- =============================================================================
+
+-- Note: projects.client_admin_id does not exist on the current schema (added
+-- by 20260429000001, absent from the live table). The DROP IF EXISTS below is
+-- included for symmetry; it will be a no-op.
+
+-- ALTER TABLE projects DROP COLUMN IF EXISTS client_admin_id;
+-- ALTER TABLE projects DROP COLUMN IF EXISTS status;
+-- ALTER TABLE projects DROP COLUMN IF EXISTS billing_status;
+
+-- After the column drops, the legacy enum types are unused and can be removed.
+-- (user_role is still used by user_profiles.role and company_memberships.role
+-- and MUST NOT be dropped.)
+
+-- DROP TYPE IF EXISTS project_status;
+-- DROP TYPE IF EXISTS billing_status;
