@@ -91,6 +91,7 @@ export async function uploadTCP(
     storage_path: storagePath,
     file_size_bytes: file.size,
     mime_type: file.type,
+    source: "admin_upload",
   });
 
   if (dbError) {
@@ -103,7 +104,7 @@ export async function uploadTCP(
   if (project.status === "assigned") {
     await supabase
       .from("projects")
-      .update({ status: "in_design" })
+      .update({ status: "in_design", unified_status: "in_production" })
       .eq("id", projectId);
   }
 
@@ -170,7 +171,7 @@ export async function submitForReview(
   const serviceClient = createServiceClient();
   const { error: updateError } = await serviceClient
     .from("projects")
-    .update({ status: "waiting_for_admin_review" })
+    .update({ status: "waiting_for_admin_review", unified_status: "pending_review" })
     .eq("id", projectId);
 
   if (updateError) {
@@ -178,13 +179,21 @@ export async function submitForReview(
     return { error: "Failed to submit for review." };
   }
 
-  await supabase.from("project_activity").insert({
-    project_id: projectId,
-    actor_id: userId,
-    actor_label: actorLabel,
-    action: "Submitted TCP sheets for admin review",
-    metadata: {},
-  });
+  await Promise.all([
+    supabase.from("project_activity").insert({
+      project_id: projectId,
+      actor_id: userId,
+      actor_label: actorLabel,
+      action: "Submitted TCP sheets for admin review",
+      metadata: {},
+    }),
+    serviceClient.from("project_updates").insert({
+      project_id: projectId,
+      status: "submitted_for_review",
+      body: `${actorLabel} submitted design for admin review.`,
+      created_by: actorLabel,
+    }),
+  ]);
 
   revalidatePath(`/designer/projects/${projectId}`);
   revalidatePath(`/admin/projects/${projectId}`);
@@ -234,11 +243,16 @@ export async function deleteTCPFile(
     return { error: "Files cannot be deleted at the current project status." };
   }
 
-  // Delete from storage
-  await supabase.storage.from("project-files").remove([fileRecord.storage_path]);
+  // Use service client for storage + DB delete.
+  // Files are uploaded via service client (no owner set on storage object),
+  // so the user-client storage policy (owner = auth.uid()) would block removal.
+  // The project_files table also has no designer DELETE RLS policy.
+  // Auth + assignment are already verified above via the user session client.
+  const serviceClient = createServiceClient();
 
-  // Delete DB record
-  const { error: dbError } = await supabase
+  await serviceClient.storage.from("project-files").remove([fileRecord.storage_path]);
+
+  const { error: dbError } = await serviceClient
     .from("project_files")
     .delete()
     .eq("id", fileId);

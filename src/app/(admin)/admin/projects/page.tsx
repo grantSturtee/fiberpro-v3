@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminProjectList } from "@/lib/queries/projects";
-import { formatDate } from "@/lib/utils/format";
+import { AdminProjectsTable } from "@/components/admin/AdminProjectsTable";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -81,73 +80,8 @@ export default async function AdminProjectsPage({
         ))}
       </div>
 
-      {/* Projects table */}
-      {projects.length === 0 ? (
-        <div
-          className="bg-card rounded-xl px-6 py-16 text-center"
-          style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
-        >
-          <p className="text-sm text-muted">No projects in this category.</p>
-        </div>
-      ) : (
-        <div
-          className="bg-card rounded-xl overflow-hidden"
-          style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
-        >
-          {/* Table header */}
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-4 px-5 py-3 bg-canvas">
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Project</span>
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Client · Authority</span>
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Status</span>
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider hidden lg:block">Designer</span>
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider hidden lg:block">Submitted</span>
-          </div>
-
-          {/* Rows */}
-          <div className="divide-y divide-surface">
-            {projects.map((p) => (
-              <Link
-                key={p.id}
-                href={`/admin/projects/${p.id}`}
-                className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-4 px-5 py-3.5 items-center hover:bg-surface transition-colors group"
-              >
-                {/* Job info */}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink truncate group-hover:text-primary transition-colors">
-                    {p.job_name}
-                  </p>
-                  <p className="text-xs text-muted font-mono mt-0.5">{p.job_number}</p>
-                </div>
-
-                {/* Client · Authority */}
-                <div className="min-w-0">
-                  <p className="text-sm text-ink truncate">{p.company_name ?? "—"}</p>
-                  <p className="text-xs text-muted truncate">
-                    {p.county ? `${p.county} County` : p.authority_type ?? "—"}
-                  </p>
-                </div>
-
-                {/* Status */}
-                <div>
-                  <ProjectStatusBadge status={p.status} />
-                </div>
-
-                {/* Designer */}
-                <div className="hidden lg:block">
-                  <span className="text-sm text-dim">
-                    {p.assigned_designer_name ?? <span className="text-faint">—</span>}
-                  </span>
-                </div>
-
-                {/* Date */}
-                <div className="hidden lg:block">
-                  <span className="text-xs text-muted">{formatDate(p.created_at)}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Projects table — client component handles row selection + bulk actions */}
+      <AdminProjectsTable projects={projects} />
     </div>
   );
 }

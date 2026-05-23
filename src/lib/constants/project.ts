@@ -1,4 +1,4 @@
-import type { ProjectStatus } from "@/types/domain";
+import type { UnifiedProjectStatus } from "@/types/domain";
 
 // ── Plan / Job type options ───────────────────────────────────────────────────
 // Display strings used in intake forms and project display.
@@ -23,78 +23,56 @@ export const JOB_TYPE_OPTIONS = [
 
 export type JobTypeDisplay = (typeof JOB_TYPE_OPTIONS)[number];
 
-// ── Status groupings ──────────────────────────────────────────────────────────
-// Used by admin and designer dashboard pages to segment the project queue.
+// ── Unified status groupings ──────────────────────────────────────────────────
+// Operational buckets used by dashboards, queues, and filters. All groups are
+// flat arrays over UnifiedProjectStatus; the legacy StatusGroup shape (label +
+// urgent/collapsible flags) has been removed — those concerns now live in the
+// view layer rather than the constants layer.
 
-export type StatusGroup = {
-  label: string;
-  statuses: ProjectStatus[];
-  urgent?: boolean;
-};
-
-// Admin operations queue groupings.
-export const ADMIN_STATUS_GROUPS: StatusGroup[] = [
-  {
-    label: "Needs Attention",
-    statuses: [
-      "intake_review",
-      "waiting_on_client",
-      "waiting_for_admin_review",
-      "revisions_required",
-      "authority_action_needed",
-    ],
-    urgent: true,
-  },
-  {
-    label: "Active Work",
-    statuses: [
-      "ready_for_assignment",
-      "assigned",
-      "in_design",
-      "approved",
-      "package_generating",
-      "ready_for_submission",
-      "submitted",
-      "waiting_on_authority",
-    ],
-  },
-  {
-    label: "Complete",
-    statuses: ["permit_received", "closed"],
-  },
+export const ATTENTION_STATUSES: UnifiedProjectStatus[] = [
+  "new_project",
+  "pending_review",
+  "sub_bill_now",
 ];
 
-// Designer dashboard groupings.
-export const DESIGNER_STATUS_GROUPS: StatusGroup[] = [
-  {
-    label: "Revisions Required",
-    statuses: ["revisions_required"],
-    urgent: true,
-  },
-  {
-    label: "In Design",
-    statuses: ["in_design", "assigned"],
-  },
-  {
-    label: "Submitted for Review",
-    statuses: ["waiting_for_admin_review"],
-  },
+export const PRODUCTION_STATUSES: UnifiedProjectStatus[] = [
+  "in_production",
+  "pending_review",
 ];
 
-// Statuses that indicate a project is "active" for dashboard counts.
-// Used by company portal to display active project count.
-export const ACTIVE_STATUSES: ProjectStatus[] = [
-  "intake_review",
-  "waiting_on_client",
-  "ready_for_assignment",
-  "assigned",
-  "in_design",
-  "waiting_for_admin_review",
-  "revisions_required",
-  "approved",
-  "package_generating",
-  "ready_for_submission",
-  "submitted",
-  "waiting_on_authority",
-  "authority_action_needed",
+export const BILLING_STATUSES: UnifiedProjectStatus[] = [
+  "billing_ready",
+  "invoice_sent",
+  "sub_bill_now",
+  "permit_billed",
+];
+
+export const COMPLETED_STATUSES: UnifiedProjectStatus[] = [
+  "paid_complete",
+  "cancelled",
+];
+
+// Everything except the terminal states. Used for "active project" counts.
+export const ACTIVE_STATUSES: UnifiedProjectStatus[] = [
+  "new_project",
+  "in_production",
+  "pending_review",
+  "billing_ready",
+  "invoice_sent",
+  "sub_bill_now",
+  "permit_billed",
+];
+
+// All unified statuses in workflow order. Source of truth for iteration and
+// validation; keep in sync with the UnifiedProjectStatus type definition.
+export const ALL_UNIFIED_STATUSES: UnifiedProjectStatus[] = [
+  "new_project",
+  "in_production",
+  "pending_review",
+  "billing_ready",
+  "invoice_sent",
+  "sub_bill_now",
+  "permit_billed",
+  "paid_complete",
+  "cancelled",
 ];

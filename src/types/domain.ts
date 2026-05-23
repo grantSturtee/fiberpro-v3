@@ -2,6 +2,10 @@
 // The single canonical status dimension for a project's position in the workflow.
 // All 16 states map to a clear operational phase.
 
+/**
+ * @deprecated Use UnifiedProjectStatus instead. Kept temporarily while consuming
+ * files migrate to the unified status column; will be removed in a follow-up pass.
+ */
 export type ProjectStatus =
   | "intake_review"           // Admin reviewing submitted intake; no assignment yet
   | "waiting_on_client"       // Admin needs more info from company before proceeding
@@ -24,6 +28,11 @@ export type ProjectStatus =
 // Tracks the invoice lifecycle for a project.
 // Invoice becomes eligible only after package is generated (approved + packaged).
 
+/**
+ * @deprecated Use UnifiedProjectStatus instead. The `hold` state moved to a
+ * separate `billing_on_hold` boolean; all other billing states are folded into
+ * the unified lifecycle. Kept temporarily while consuming files migrate.
+ */
 export type BillingStatus =
   | "not_ready"        // Design not yet approved/packaged; cannot invoice
   | "ready_to_invoice" // Package generated; billing can create invoice
@@ -32,6 +41,24 @@ export type BillingStatus =
   | "partially_paid"   // Partial payment received
   | "paid"             // Paid in full
   | "hold";            // Billing on hold (dispute, credit, etc.)
+
+// ── Unified Project Status ────────────────────────────────────────────────────
+// Single canonical status column replacing the legacy (status, billing_status)
+// two-dimensional model. Migration 20260520000001 added the backing column;
+// legacy columns remain in place until the cutover migration drops them.
+// `billing_on_hold` is tracked as a separate boolean — it's orthogonal to the
+// lifecycle stage and can apply to any non-terminal status.
+
+export type UnifiedProjectStatus =
+  | "new_project"     // Intake/early stage; not yet assigned or in design
+  | "in_production"   // Designer actively working (assigned / in_design / revisions)
+  | "pending_review"  // Awaiting admin review or package generation
+  | "billing_ready"   // Package ready; invoice can be created or drafted
+  | "invoice_sent"    // Invoice sent prior to authority submission
+  | "sub_bill_now"    // Submitted to authority; invoice action needed
+  | "permit_billed"   // Submitted and invoiced (or partially paid)
+  | "paid_complete"   // Paid in full; permit received or project closed
+  | "cancelled";      // Cancelled at any stage
 
 // ── File Category ─────────────────────────────────────────────────────────────
 // Classifies every file uploaded to a project.
@@ -45,10 +72,11 @@ export type FileCategory =
   | "tcp_source"         // TCP source files (CAD/vector, designer)
   | "tcd_sheet"          // TCD sheet PDFs from the library
   | "sld_sheet"          // SLD reference sheets uploaded by admin
-  | "application_form"   // Jurisdiction permit application form
+  | "application_form"   // Generated authority application form (overlay pipeline)
+  | "certification_form" // Generated authority certification form (overlay pipeline)
   | "cover_sheet"        // Generated or template cover sheet
   | "permit_package"     // Final assembled permit package PDF
-  | "permit_document"    // Received permit document from authority
+  | "permit_document"    // Received permit document from authority (post-submission)
   | "coi"                // Certificate of Insurance
   | "pe_stamp"           // PE stamp page
   | "invoice_attachment" // Invoice PDF or supporting billing document
@@ -110,7 +138,7 @@ export interface CoverSheetTemplate {
 
 export interface Project {
   id: string;
-  jobNumber: string;       // FiberPro job number: "FP-YYYY-NNNN"
+  jobNumber: string;       // GRANTED job number: "FP-YYYY-NNNN"
   jobName: string;
   jobNumberClient?: string; // Client's reference number
   address: string;

@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { createClient } from "@/lib/supabase/server";
 import {
-  getCompanyIdForUser,
+  getCompanyMembership,
   getCompany,
-  getCompanyProjectList,
+  getCompanyProjectListForUser,
 } from "@/lib/queries/projects";
 import { ACTIVE_STATUSES } from "@/lib/constants/project";
 import { formatDate } from "@/lib/utils/format";
@@ -19,8 +19,8 @@ export default async function CompanyDashboardPage() {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/sign-in");
 
-  const companyId = await getCompanyIdForUser(supabase, userData.user.id);
-  if (!companyId) {
+  const membership = await getCompanyMembership(supabase, userData.user.id);
+  if (!membership) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <p className="text-sm text-muted">
@@ -30,13 +30,14 @@ export default async function CompanyDashboardPage() {
     );
   }
 
+  const { company_id: companyId, role: memberRole } = membership;
+
   const [company, projects] = await Promise.all([
     getCompany(supabase, companyId),
-    getCompanyProjectList(supabase, companyId),
+    getCompanyProjectListForUser(supabase, companyId, userData.user.id, memberRole),
   ]);
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const active = projects.filter((p) => ACTIVE_STATUSES.includes(p.status)).length;
+  const active = projects.filter((p) => ACTIVE_STATUSES.includes(p.unified_status)).length;
   const awaitingPermit = projects.filter((p) =>
     ["submitted", "waiting_on_authority", "authority_action_needed"].includes(p.status)
   ).length;
@@ -45,6 +46,7 @@ export default async function CompanyDashboardPage() {
   ).length;
 
   const recent = projects.slice(0, 6);
+  const isAdmin = memberRole === "company_admin";
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
@@ -56,39 +58,26 @@ export default async function CompanyDashboardPage() {
             {company?.name ?? "Project Portal"}
           </h1>
           <p className="mt-0.5 text-sm text-muted">
-            Manage and track your permit projects.
+            {isAdmin ? "Manage and track your permit projects." : "Your assigned projects."}
           </p>
         </div>
-        <Link
-          href="/company/submit"
-          className="flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
-          style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-        >
-          + Submit Project
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/company/submit"
+            className="flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+          >
+            + Submit Project
+          </Link>
+        )}
       </div>
 
-      {/* ── Stats row ── */}
+      {/* ── Stats row — only shown when there are projects ── */}
       {projects.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <StatCard
-            label="Active"
-            value={active}
-            description="In progress"
-            href="/company/projects"
-          />
-          <StatCard
-            label="Awaiting Permit"
-            value={awaitingPermit}
-            description="Submitted to authority"
-            href="/company/projects"
-          />
-          <StatCard
-            label="Completed"
-            value={completed}
-            description="Permit received or closed"
-            href="/company/projects"
-          />
+          <StatCard label="Active" value={active} description="In progress" href="/company/projects" />
+          <StatCard label="Awaiting Permit" value={awaitingPermit} description="Submitted to authority" href="/company/projects" />
+          <StatCard label="Completed" value={completed} description="Permit received or closed" href="/company/projects" />
         </div>
       )}
 
@@ -96,7 +85,7 @@ export default async function CompanyDashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold text-muted uppercase tracking-wider">
-            Recent Projects
+            {isAdmin ? "Recent Projects" : "Your Projects"}
           </h2>
           {projects.length > 0 && (
             <Link href="/company/projects" className="text-xs text-primary hover:underline">
@@ -110,17 +99,23 @@ export default async function CompanyDashboardPage() {
             className="bg-card rounded-xl px-8 py-14 text-center"
             style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
           >
-            <p className="text-sm font-semibold text-ink mb-1">No projects yet</p>
-            <p className="text-sm text-muted mb-5">
-              Submit your first project to get started with the permitting process.
+            <p className="text-sm font-semibold text-ink mb-1">
+              {isAdmin ? "No projects yet" : "No projects assigned"}
             </p>
-            <Link
-              href="/company/submit"
-              className="inline-block px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
-              style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-            >
-              Submit a Project
-            </Link>
+            <p className="text-sm text-muted mb-5">
+              {isAdmin
+                ? "Submit your first project to get started with the permitting process."
+                : "Contact your company admin to be assigned to projects."}
+            </p>
+            {isAdmin && (
+              <Link
+                href="/company/submit"
+                className="inline-block px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
+                style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+              >
+                Submit a Project
+              </Link>
+            )}
           </div>
         ) : (
           <div
@@ -150,7 +145,7 @@ export default async function CompanyDashboardPage() {
                       <span>{formatDate(p.created_at)}</span>
                     </div>
                   </div>
-                  <ProjectStatusBadge status={p.status} variant="external" />
+                  <ProjectStatusBadge status={p.unified_status} />
                 </Link>
               ))}
             </div>
@@ -160,8 +155,6 @@ export default async function CompanyDashboardPage() {
     </div>
   );
 }
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
