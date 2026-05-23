@@ -3,87 +3,48 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/ui/Logo";
+import {
+  FolderOpen,
+  Receipt,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 
-function IconFolder() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M1.5 4.5C1.5 3.67 2.17 3 3 3h3.09l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5v-7.5z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+// ── Nav definition ───────────────────────────────────────────────────────────
 
-function IconTeam() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="6" cy="5" r="2.5" />
-      <path d="M1 14c0-2.76 2.24-5 5-5s5 2.24 5 5" />
-      <path d="M12 7.5a2 2 0 100-4" />
-      <path d="M15 14c0-2.21-1.34-4.1-3.2-4.79" />
-    </svg>
-  );
-}
+type NavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+};
 
-function IconInvoice() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14,2 14,8 20,8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-      <polyline points="10,9 9,9 8,9" />
-    </svg>
-  );
-}
+// Team is conditional on role === "company_admin" — applied at render time.
 
-function IconChevronLeft() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M9 11L5 7l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function IconChevronRight() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+// ── Props ────────────────────────────────────────────────────────────────────
 
 export function CompanySidebar({ role }: { role?: string }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const navItems = [
-    { label: "Projects", href: "/company/projects", icon: <IconFolder /> },
-    { label: "Invoices", href: "/company/invoices", icon: <IconInvoice /> },
+  const navItems: NavItem[] = [
+    { label: "Projects", href: "/company/projects", icon: FolderOpen },
+    { label: "Invoices", href: "/company/invoices", icon: Receipt },
     ...(role === "company_admin"
-      ? [{ label: "Team", href: "/company/team", icon: <IconTeam /> }]
+      ? [{ label: "Team", href: "/company/team", icon: Users }]
       : []),
   ];
 
+  // Hydrate from localStorage after mount to avoid SSR mismatch.
   useEffect(() => {
     try {
       if (localStorage.getItem("company-sidebar-collapsed") === "true") {
         setCollapsed(true);
       }
-    } catch { /* ignore */ }
+    } catch {
+      // localStorage unavailable
+    }
   }, []);
 
   function toggle() {
@@ -91,73 +52,86 @@ export function CompanySidebar({ role }: { role?: string }) {
       const next = !prev;
       try {
         localStorage.setItem("company-sidebar-collapsed", String(next));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return next;
     });
   }
 
+  function isActive(href: string) {
+    // Projects also matches /company root (the company dashboard) since there
+    // is no separate Dashboard nav item in the company portal.
+    if (href === "/company/projects") {
+      return pathname === "/company" || pathname.startsWith("/company/projects");
+    }
+    return pathname.startsWith(href);
+  }
+
+  function NavLink({ item }: { item: NavItem }) {
+    const active = isActive(item.href);
+    const Icon = item.icon;
+    return (
+      <Link
+        href={item.href}
+        title={collapsed ? item.label : undefined}
+        className={[
+          "flex items-center rounded-lg transition-colors",
+          "h-9 text-[13px] font-medium leading-[18px]",
+          collapsed ? "justify-center px-0" : "gap-[10px] px-3",
+          active
+            ? "bg-[#E8F0FE] text-[#1565C0]"
+            : "text-[#6B7280] hover:bg-[#F3F4F6]",
+        ].join(" ")}
+      >
+        <Icon size={18} strokeWidth={1.5} className="flex-shrink-0" />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </Link>
+    );
+  }
+
   return (
     <aside
-      className="flex-shrink-0 flex flex-col h-screen bg-canvas transition-[width] duration-200 ease-in-out overflow-hidden"
-      style={{ width: collapsed ? 64 : 220 }}
+      className="flex-shrink-0 flex flex-col h-screen bg-[#F4F5F7] border-r border-[#E5E7EB] transition-all duration-200 ease-in-out overflow-hidden"
+      style={{ width: collapsed ? 56 : 200 }}
     >
-      {/* Brand + toggle */}
-      {collapsed ? (
-        <div className="h-14 flex-shrink-0 flex items-center justify-center gap-1">
-          <Logo variant="icon" />
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Expand sidebar"
-            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-ink hover:bg-wash transition-colors flex-shrink-0"
+      {/* Logo + collapse toggle */}
+      <div className="flex items-center px-3" style={{ height: 48 }}>
+        {!collapsed && (
+          <span
+            className="flex-1 truncate"
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 18,
+              fontWeight: 700,
+              color: "#1565C0",
+              textTransform: "uppercase",
+            }}
           >
-            <IconChevronRight />
-          </button>
-        </div>
-      ) : (
-        <div className="h-14 flex items-center flex-shrink-0 px-3 gap-2">
-          <div className="flex-1 flex items-center gap-2 overflow-hidden">
-            <Logo variant="banner" />
-            <span className="text-[10px] font-semibold text-muted bg-wash rounded px-1.5 py-0.5 tracking-wide whitespace-nowrap">
-              PORTAL
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Collapse sidebar"
-            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-ink hover:bg-wash transition-colors flex-shrink-0"
-          >
-            <IconChevronLeft />
-          </button>
-        </div>
-      )}
+            GRANTED
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={[
+            "flex items-center justify-center w-6 h-6 rounded text-[#9CA3AF]",
+            "hover:text-[#6B7280] transition-colors flex-shrink-0",
+            collapsed ? "mx-auto" : "",
+          ].join(" ")}
+        >
+          {collapsed
+            ? <ChevronRight size={16} strokeWidth={1.5} />
+            : <ChevronLeft  size={16} strokeWidth={1.5} />}
+        </button>
+      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5">
-        {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={`
-                flex items-center rounded-lg text-sm transition-colors
-                ${collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"}
-                ${active
-                  ? "bg-wash text-ink font-medium"
-                  : "text-dim hover:bg-wash hover:text-ink"
-                }
-              `}
-            >
-              <span className={`flex-shrink-0 ${active ? "text-primary" : "text-muted"}`}>
-                {item.icon}
-              </span>
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </Link>
-          );
-        })}
+      {/* Main nav */}
+      <nav className="flex-1 px-3 pt-1 flex flex-col gap-0.5">
+        {navItems.map((item) => (
+          <NavLink key={item.href} item={item} />
+        ))}
       </nav>
     </aside>
   );
