@@ -10,10 +10,15 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | FiberPro",
-    default: "FiberPro",
+    template: "%s | GRANTED",
+    default: "GRANTED",
   },
   description: "Telecom operations platform — traffic control, permitting, and package management.",
+  icons: {
+    icon: "/granted-square.svg",
+    shortcut: "/granted-square.svg",
+    apple: "/granted-square.svg",
+  },
 };
 
 export default function RootLayout({

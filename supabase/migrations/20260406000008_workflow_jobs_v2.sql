@@ -82,8 +82,3 @@ CREATE TRIGGER workflow_jobs_updated_at
 -- (project_id, job_type): fetch all jobs of a specific type for a project
 CREATE INDEX IF NOT EXISTS idx_workflow_jobs_project_type
   ON workflow_jobs (project_id, job_type);
-
--- (status): n8n worker polls for pending/running jobs
-CREATE INDEX IF NOT EXISTS idx_workflow_jobs_status
-  ON workflow_jobs (status)
-  WHERE status IN ('pending', 'queued', 'running');

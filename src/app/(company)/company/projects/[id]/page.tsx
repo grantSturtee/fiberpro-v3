@@ -6,12 +6,14 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import {
-  getCompanyIdForUser,
+  getCompanyMembership,
   getProjectDetail,
 } from "@/lib/queries/projects";
-import { formatDate, humanize } from "@/lib/utils/format";
-import { FILE_CATEGORY_LABELS, CLIENT_FILE_CATEGORIES, isBrowserViewable } from "@/lib/constants/files";
+import { formatDate, formatDateTime, humanize } from "@/lib/utils/format";
+import { CLIENT_FILE_CATEGORIES, isBrowserViewable } from "@/lib/constants/files";
 import { UploadIntakeFileForm } from "@/components/company/UploadIntakeFileForm";
+import { ProjectMessagesThread, type ProjectMessage } from "@/components/shared/ProjectMessagesThread";
+import { DeleteIntakeFileButton } from "@/components/company/DeleteIntakeFileButton";
 import { FileDownloadLink } from "@/components/ui/FileDownloadLink";
 import { FileTypeBadge } from "@/components/ui/FileTypeBadge";
 
@@ -34,9 +36,11 @@ export default async function CompanyProjectDetailPage({
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/sign-in");
 
-  // Verify the user's company_id before fetching the project
-  const companyId = await getCompanyIdForUser(supabase, userData.user.id);
-  if (!companyId) redirect("/sign-in");
+  // Verify the user's company membership before fetching the project
+  const membership = await getCompanyMembership(supabase, userData.user.id);
+  if (!membership) redirect("/sign-in");
+
+  const { company_id: companyId, role: memberRole } = membership;
 
   const project = await getProjectDetail(supabase, id);
 
@@ -45,22 +49,86 @@ export default async function CompanyProjectDetailPage({
     notFound();
   }
 
+  // client_admin: sees all company projects — no extra check needed.
+  // project_manager: must have submitted the project OR have an explicit assignment.
+  if (memberRole === "project_manager") {
+    const { data: projectMeta } = await supabase
+      .from("projects")
+      .select("submitted_by")
+      .eq("id", id)
+      .maybeSingle();
+
+    const isSubmitter = projectMeta?.submitted_by === userData.user.id;
+    if (!isSubmitter) {
+      const { data: assignment } = await supabase
+        .from("project_manager_assignments")
+        .select("id")
+        .eq("project_id", id)
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+      if (!assignment) notFound();
+    }
+  }
+
   const showBilling =
     project.billing_status !== null &&
     ["invoiced", "partially_paid", "paid"].includes(project.billing_status);
 
+  let projectInvoice: {
+    id: string;
+    invoice_number: string;
+    status: string;
+    total_amount: number;
+    discount_amount: number;
+    invoice_date: string | null;
+    pdf_storage_path: string | null;
+  } | null = null;
+
+  if (showBilling) {
+    const { data: invoiceData } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, status, total_amount, discount_amount, invoice_date, pdf_storage_path")
+      .eq("project_id", project.id)
+      .in("status", ["sent", "partially_paid", "paid"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    projectInvoice = invoiceData ?? null;
+  }
+
   // Fetch company-visible messages
   const { data: messagesData } = await supabase
     .from("project_messages")
-    .select("id, sender_label, body, created_at")
+    .select("id, sender_label, sender_role, body, created_at")
     .eq("project_id", id)
     .eq("visible_to_company", true)
     .order("created_at", { ascending: true });
 
-  const messages = messagesData ?? [];
+  const messages = (messagesData ?? []) as ProjectMessage[];
+
+  const serviceClient = createServiceClient();
+
+  // Fetch permit package + received permit document files (visible to company)
+  const { data: packageFilesData } = await serviceClient
+    .from("project_files")
+    .select("id, file_name, storage_path, file_category, created_at")
+    .eq("project_id", id)
+    .in("file_category", ["permit_package", "permit_document"])
+    .order("created_at", { ascending: false });
+
+  const allDocFiles = packageFilesData ?? [];
+
+  // Generate signed download URLs (60-minute expiry) for each file
+  const allDocFilesWithUrls = await Promise.all(
+    allDocFiles.map(async (f) => {
+      const { data: signed } = await serviceClient.storage
+        .from("project-files")
+        .createSignedUrl(f.storage_path, 3600);
+      return { ...f, downloadUrl: signed?.signedUrl ?? null };
+    })
+  );
 
   // Fetch intake files the company has uploaded
-  const serviceClient = createServiceClient();
   const { data: intakeFilesData } = await serviceClient
     .from("project_files")
     .select("id, file_name, file_category, file_size_bytes, storage_path, created_at, mime_type")
@@ -93,8 +161,26 @@ export default async function CompanyProjectDetailPage({
     return humanize(project.authority_type);
   })();
 
+  const SUBMISSION_METHOD_LABELS: Record<string, string> = {
+    email:     "Email",
+    portal:    "Online Portal",
+    mail:      "Mail",
+    courier:   "Courier",
+    in_person: "In Person",
+  };
+
+  // The project is in the submission workflow if status is one of these
+  const inSubmissionFlow = [
+    "ready_for_submission",
+    "submitted",
+    "waiting_on_authority",
+    "authority_action_needed",
+    "permit_received",
+    "closed",
+  ].includes(project.status);
+
   return (
-    <div className="p-8 space-y-6 max-w-3xl mx-auto">
+    <div className="p-8 space-y-6 max-w-3xl mx-auto bg-white min-h-full">
 
       {/* Breadcrumb + title */}
       <div>
@@ -107,39 +193,59 @@ export default async function CompanyProjectDetailPage({
         </div>
         <div className="flex items-center gap-3 flex-wrap mb-1">
           <h1 className="text-xl font-semibold text-ink">{project.job_name}</h1>
-          <ProjectStatusBadge status={project.status} variant="external" />
+          <ProjectStatusBadge status={project.unified_status} />
         </div>
         <p className="text-sm text-muted">
-          {authorityDisplay}
-          {project.county ? ` · ${project.county} County` : ""}
-          {" · Submitted "}
-          {formatDate(project.created_at)}
+          {authorityDisplay} · {humanize(project.type_of_plan)} · Submitted {formatDate(project.created_at)}
         </p>
       </div>
 
-      {/* Project information */}
-      <SectionCard title="Project Information">
-        <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-          {[
-            { label: "Client Job #",        value: project.job_number_client },
-            { label: "FiberPro Job #",      value: project.job_number },
-            { label: "Job Address",         value: project.job_address },
-            { label: "Authority",           value: authorityDisplay },
-            { label: "Type of Plan",        value: humanize(project.type_of_plan) },
-            { label: "Job Type",            value: humanize(project.job_type) },
-            { label: "Requested Approval",  value: formatDate(project.requested_approval_date) },
-            ...(project.permit_received_date
-              ? [{ label: "Permit Received", value: formatDate(project.permit_received_date) }]
-              : []),
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
-                {label}
-              </p>
-              <p className="text-sm text-ink">{value || <span className="text-faint">—</span>}</p>
+      {/* Project information.
+          Phase A — when a structured street_address has been entered, show
+          it on its own line with "City, ST ZIP" beneath. For projects that
+          predate Phase A (no street_address) we fall back to the legacy
+          job_address field so existing records stay readable. */}
+      <SectionCard flat title="Project Information">
+        {(() => {
+          const cityStateZip = (() => {
+            const left  = project.city?.trim() || null;
+            const right = [project.state?.trim(), project.zip_code?.trim()].filter(Boolean).join(" ") || null;
+            if (left && right) return `${left}, ${right}`;
+            return left || right;
+          })();
+          const addressBlock = project.street_address ? (
+            <>
+              <p className="text-sm text-ink">{project.street_address}</p>
+              {cityStateZip && <p className="text-sm text-ink">{cityStateZip}</p>}
+            </>
+          ) : (
+            <p className="text-sm text-ink">{project.job_address || <span className="text-faint">—</span>}</p>
+          );
+          return (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <div className="col-span-2">
+                <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Address</p>
+                {addressBlock}
+              </div>
+              {[
+                { label: "Client Job #",        value: project.job_number_client },
+                { label: "GRANTED Job #",      value: project.job_number },
+                { label: "Authority",           value: authorityDisplay },
+                { label: "Job Type",            value: humanize(project.type_of_plan) },
+                { label: "Requested Approval",  value: formatDate(project.requested_approval_date) },
+                { label: "Milepost Start",      value: project.milepost_start },
+                { label: "Milepost End",        value: project.milepost_end },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+                    {label}
+                  </p>
+                  <p className="text-sm text-ink">{value || <span className="text-faint">—</span>}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* Permit received highlight */}
         {project.permit_received_date && (
@@ -155,8 +261,68 @@ export default async function CompanyProjectDetailPage({
         )}
       </SectionCard>
 
+      {/* Permit Status — shown once the project enters the submission workflow */}
+      {inSubmissionFlow && (
+        <SectionCard flat title="Permit Status">
+          <div className="space-y-4">
+
+            {/* Status row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <ProjectStatusBadge status={project.unified_status} />
+              {project.status === "authority_action_needed" && (
+                <p className="text-sm text-muted">
+                  The authority has a question or request. Our team is working on a response.
+                </p>
+              )}
+            </div>
+
+            {/* Submission details — shown once actually submitted */}
+            {["submitted", "waiting_on_authority", "authority_action_needed",
+              "permit_received", "closed"].includes(project.status) && (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                {project.submission_date && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+                      Date Submitted
+                    </p>
+                    <p className="text-sm text-ink">{formatDate(project.submission_date)}</p>
+                  </div>
+                )}
+                {project.submission_method && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+                      Submission Method
+                    </p>
+                    <p className="text-sm text-ink">
+                      {SUBMISSION_METHOD_LABELS[project.submission_method] ?? project.submission_method}
+                    </p>
+                  </div>
+                )}
+                {project.authority_tracking_number && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+                      Authority Reference #
+                    </p>
+                    <p className="text-sm text-ink font-mono">{project.authority_tracking_number}</p>
+                  </div>
+                )}
+                {project.permit_received_date && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+                      Permit Received
+                    </p>
+                    <p className="text-sm text-ink">{formatDate(project.permit_received_date)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </SectionCard>
+      )}
+
       {/* Attachments — files uploaded by the company */}
-      <SectionCard
+      <SectionCard flat
         title="Attachments"
         description="Reference files you have submitted for this project."
       >
@@ -170,31 +336,44 @@ export default async function CompanyProjectDetailPage({
                     <div className="min-w-0">
                       <p className="text-sm text-ink truncate">{f.file_name}</p>
                       <p className="text-[11px] text-muted mt-0.5">
-                        {FILE_CATEGORY_LABELS[f.file_category as keyof typeof FILE_CATEGORY_LABELS] ?? f.file_category}
                         {f.file_size_bytes
-                          ? ` · ${(f.file_size_bytes / 1048576).toFixed(1)} MB`
+                          ? `${(f.file_size_bytes / 1048576).toFixed(1)} MB · `
                           : ""}
-                        {" · "}
                         {formatDate(f.created_at)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2.5 flex-shrink-0">
                     {isBrowserViewable(f.mime_type) && f.viewUrl ? (
                       <a
                         href={f.viewUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline"
+                        title="View file"
+                        className="text-muted hover:text-primary transition-colors"
                       >
-                        View
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+                          <ellipse cx="8" cy="8" rx="7" ry="5" stroke="currentColor" strokeWidth="1.4"/>
+                          <circle cx="8" cy="8" r="2" fill="currentColor"/>
+                        </svg>
                       </a>
                     ) : (
-                      <span className="text-xs text-faint" title="This file type cannot be previewed in the browser">
-                        View
+                      <span
+                        title="This file type cannot be previewed in the browser"
+                        className="text-faint cursor-default"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+                          <ellipse cx="8" cy="8" rx="7" ry="5" stroke="currentColor" strokeWidth="1.4"/>
+                          <circle cx="8" cy="8" r="2" fill="currentColor"/>
+                        </svg>
                       </span>
                     )}
                     {f.downloadUrl && <FileDownloadLink href={f.downloadUrl} />}
+                    <DeleteIntakeFileButton
+                      fileId={f.id}
+                      projectId={project.id}
+                      fileName={f.file_name}
+                    />
                   </div>
                 </div>
               ))}
@@ -209,77 +388,111 @@ export default async function CompanyProjectDetailPage({
         </div>
       </SectionCard>
 
-      {/* Documents — TODO: real files from project_files table in a later phase */}
-      <SectionCard
+      {/* Documents — permit packages and received permits made available by GRANTED */}
+      <SectionCard flat
         title="Documents"
-        description="Files made available by FiberPro for download."
+        description="Files made available by GRANTED for download."
       >
-        <p className="text-sm text-muted py-2">
-          No documents are available for download yet. You will be notified when permit documents are ready.
-        </p>
-        {/* TODO: query project_files WHERE file_category IN ('permit_package','permit_document') */}
+        {allDocFilesWithUrls.length === 0 ? (
+          <p className="text-sm text-muted py-2">
+            No documents yet. You will be notified when permit documents are ready.
+          </p>
+        ) : (
+          <div className="divide-y divide-surface">
+            {allDocFilesWithUrls.map((f) => (
+              <div key={f.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <FileTypeBadge fileName={f.file_name} />
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink truncate">{f.file_name}</p>
+                    <p className="text-[11px] text-muted mt-0.5">
+                      {f.file_category === "permit_document" ? "Received Permit · " : ""}
+                      {formatDate(f.created_at)}
+                    </p>
+                  </div>
+                </div>
+                {f.downloadUrl && <FileDownloadLink href={f.downloadUrl} />}
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
 
-      {/* Billing visibility — shown only once an invoice exists */}
-      {showBilling && (
-        <SectionCard title="Billing">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">
-                Invoice Status
-              </p>
-              <p className="text-sm text-ink font-medium">
-                {project.billing_status === "paid"
-                  ? "Paid in full"
-                  : project.billing_status === "partially_paid"
-                  ? "Partially paid"
-                  : "Invoice sent"}
-              </p>
-            </div>
-          </div>
-          {/* TODO: invoice amount and download link — future billing phase */}
-        </SectionCard>
-      )}
+      {/* Billing — shown once invoice has been sent */}
+      {showBilling && (() => {
+        const invoice = projectInvoice;
+        const billingLabel =
+          project.billing_status === "paid" ? "Paid in Full" :
+          project.billing_status === "partially_paid" ? "Partially Paid" :
+          "Invoice Ready";
 
-      {/* Messages / updates from FiberPro */}
-      <SectionCard title="Updates">
-        <div className="space-y-4">
-          {messages.length === 0 && (
-            <p className="text-sm text-muted py-2">No updates from FiberPro yet.</p>
-          )}
-          {messages.map((msg) => (
-            <div key={msg.id} className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-[10px] font-semibold text-primary">FP</span>
+        return (
+          <SectionCard flat title="Billing">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-ink">{billingLabel}</span>
+                {invoice && (
+                  <a
+                    href={`/api/invoices/${invoice.id}/pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    View Invoice
+                  </a>
+                )}
               </div>
-              <div className="bg-surface rounded-xl px-4 py-3 flex-1">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <p className="text-xs font-semibold text-ink">{msg.sender_label || "FiberPro"}</p>
-                  <p className="text-[10px] text-muted">{formatDate(msg.created_at)}</p>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-wide mb-0.5">Invoice #</p>
+                  <p className="font-medium text-ink">
+                    {invoice?.invoice_number ?? project.invoice_number ?? "—"}
+                  </p>
                 </div>
-                <p className="text-sm text-dim">{msg.body}</p>
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-wide mb-0.5">Amount</p>
+                  <p className="font-medium text-ink">
+                    ${(invoice?.total_amount ?? Math.max(0, (project.base_price ?? 0) - (project.discount_amount ?? 0))).toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-wide mb-0.5">Invoice Date</p>
+                  <p className="font-medium text-ink">
+                    {invoice?.invoice_date
+                      ? new Date(invoice.invoice_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : project.invoice_sent_at
+                      ? new Date(project.invoice_sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-wide mb-0.5">Status</p>
+                  <p className="font-medium text-ink capitalize">
+                    {(invoice?.status ?? project.billing_status ?? "invoiced").replace(/_/g, " ")}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Reply area — TODO: wire to project_messages insert (company message → FiberPro) */}
-        <div className="mt-5 pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
-          <p className="text-xs text-muted mb-2">Send a message to FiberPro</p>
-          <textarea
-            rows={3}
-            className="w-full text-sm text-ink bg-surface rounded-xl px-4 py-3 resize-none outline-none"
-            style={{ border: "1px solid #d4dde4" }}
-            placeholder="Questions, clarifications, or updates about this project…"
-          />
-          {/* TODO: wire send button to server action in next phase */}
-          <button
-            className="mt-2 px-4 py-2 rounded-lg text-xs font-semibold text-white transition-colors"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          >
-            Send Message
-          </button>
-        </div>
+              {!invoice && (
+                <p className="text-xs text-dim italic">Invoice details loading — contact us if this persists.</p>
+              )}
+            </div>
+          </SectionCard>
+        );
+      })()}
+
+      {/* Project Conversation — shared message thread visible to company and GRANTED team */}
+      <SectionCard flat title="Project Conversation">
+        <ProjectMessagesThread
+          projectId={project.id}
+          messages={messages}
+          revalidatePath={`/company/projects/${project.id}`}
+        />
       </SectionCard>
     </div>
   );

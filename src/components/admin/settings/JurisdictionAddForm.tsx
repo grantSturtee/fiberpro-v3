@@ -65,17 +65,17 @@ export function JurisdictionAddForm() {
         <div>
           <label className={labelCls}>State<span className="text-red-500 ml-0.5">*</span></label>
           <input name="state" type="text" required defaultValue="NJ" maxLength={2}
-            className={inputCls} style={borderStyle} />
+            className={`${inputCls} uppercase-input`} style={borderStyle} />
         </div>
         <div>
           <label className={labelCls}>County</label>
           <input name="county" type="text" placeholder="e.g. Bergen"
-            className={inputCls} style={borderStyle} />
+            className={`${inputCls} uppercase-input`} style={borderStyle} />
         </div>
         <div>
           <label className={labelCls}>Municipality</label>
           <input name="municipality" type="text" placeholder="e.g. Hackensack"
-            className={inputCls} style={borderStyle} />
+            className={`${inputCls} uppercase-input`} style={borderStyle} />
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export function JurisdictionAddForm() {
         <div>
           <label className={labelCls}>Authority Name</label>
           <input name="authority_name" type="text" placeholder="e.g. Bergen County Engineering"
-            className={inputCls} style={borderStyle} />
+            className={`${inputCls} uppercase-input`} style={borderStyle} />
         </div>
         <div>
           <label className={labelCls}>Authority Type</label>

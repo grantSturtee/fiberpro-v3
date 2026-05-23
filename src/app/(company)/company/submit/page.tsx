@@ -2,16 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SubmitProjectForm } from "./SubmitProjectForm";
+import { createServiceClient } from "@/lib/supabase/admin";
+import {
+  SubmitProjectForm,
+  type CompanyMember,
+  type CompanyRole,
+} from "./SubmitProjectForm";
 
 export const metadata: Metadata = { title: "Submit Project" };
-
-// Project intake form for company-side users.
-// No draft save — one submission per session.
-// Fetches submitter name and company manager name server-side so the form
-// can display them as read-only system-populated fields.
-// On submit: server action auto-populates these fields from DB, not form.
-// TODO (next phase): wire attachment uploads to Supabase Storage.
 
 export default async function CompanySubmitPage() {
   const supabase = await createClient();
@@ -21,35 +19,90 @@ export default async function CompanySubmitPage() {
 
   const userId = userData.user.id;
 
-  // Submitter name — from user_profiles
+  // Submitter profile — display label fallback chain
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("display_name")
+    .select("display_name, email")
     .eq("id", userId)
     .single();
 
-  const submitterName = profile?.display_name || userData.user.email || "You";
+  const submitterLabel =
+    profile?.display_name?.trim() ||
+    profile?.email?.trim() ||
+    userData.user.email ||
+    "You";
 
-  // Company manager — from company_memberships, company_admin role
-  let companyManagerName: string | null = null;
-  const { data: membership } = await supabase
+  // Submitter's company membership: role
+  const { data: membershipRow } = await supabase
     .from("company_memberships")
-    .select("company_id")
+    .select("company_id, role")
     .eq("user_id", userId)
     .single();
 
-  if (membership) {
-    const { data: admins } = await supabase
-      .from("company_memberships")
-      .select("user_id, user_profiles ( display_name )")
-      .eq("company_id", membership.company_id)
-      .eq("role", "company_admin")
-      .limit(1);
+  const membership = membershipRow as
+    | { company_id: string; role: string }
+    | null;
 
-    if (admins && admins.length > 0) {
-      const adminProfiles = admins[0].user_profiles as unknown as { display_name: string }[] | null;
-      companyManagerName = Array.isArray(adminProfiles) ? (adminProfiles[0]?.display_name ?? null) : null;
+  let role: CompanyRole = "project_manager";
+  let companyId: string | null = null;
+  let allowedStates: string[] | null = null;
+  let projectManagers: CompanyMember[] = [];
+
+  if (membership) {
+    companyId = membership.company_id;
+    role = membership.role === "company_admin" ? "company_admin" : "project_manager";
+
+    const serviceClient = createServiceClient();
+
+    const [{ data: companyData }, { data: memberRows }] = await Promise.all([
+      supabase
+        .from("companies")
+        .select("allowed_states")
+        .eq("id", companyId)
+        .single(),
+      serviceClient
+        .from("company_memberships")
+        .select("user_id, role")
+        .eq("company_id", companyId)
+        .eq("role", "project_manager"),
+    ]);
+
+    allowedStates = (companyData?.allowed_states as string[] | null | undefined) ?? null;
+
+    type RawMember = { user_id: string; role: string };
+    const rawMembers = (memberRows ?? []) as RawMember[];
+    const memberUserIds = Array.from(new Set(rawMembers.map((m) => m.user_id)));
+
+    type ProfileRow = {
+      id: string;
+      display_name: string | null;
+      email: string | null;
+    };
+    const profileMap = new Map<string, ProfileRow>();
+    if (memberUserIds.length > 0) {
+      const { data: profilesData } = await serviceClient
+        .from("user_profiles")
+        .select("id, display_name, email")
+        .in("id", memberUserIds);
+      for (const p of (profilesData ?? []) as ProfileRow[]) {
+        profileMap.set(p.id, p);
+      }
     }
+
+    for (const m of rawMembers) {
+      const p = profileMap.get(m.user_id);
+      const displayName = p?.display_name?.trim() || null;
+      const email = p?.email?.trim() || null;
+      const label = displayName || email || "(unnamed user)";
+      projectManagers.push({
+        userId: m.user_id,
+        displayName,
+        email,
+        label,
+      });
+    }
+
+    projectManagers.sort((a, b) => a.label.localeCompare(b.label));
   }
 
   return (
@@ -71,8 +124,10 @@ export default async function CompanySubmitPage() {
       </div>
 
       <SubmitProjectForm
-        submitterName={submitterName}
-        companyManagerName={companyManagerName}
+        role={role}
+        currentUserLabel={submitterLabel}
+        projectManagers={projectManagers}
+        allowedStates={allowedStates}
       />
     </div>
   );

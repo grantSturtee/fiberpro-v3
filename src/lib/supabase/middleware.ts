@@ -47,16 +47,12 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: getClaims() (or getUser() in older versions) refreshes the
-  // session. Must be called before any routing logic.
   const { data: claimsData } = await supabase.auth.getClaims();
   const user = claimsData?.claims;
 
   const { pathname } = request.nextUrl;
 
-  // ── 1. Public routes — pass through always ──────────────────────────────
   if (isPublic(pathname)) {
-    // If already authenticated and hitting /sign-in, redirect to their area
     if (pathname === "/sign-in" && user) {
       const role = user.app_metadata?.role as UserRole | undefined;
       const dest = roleHome(role);
@@ -67,7 +63,6 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // ── 2. Root redirect ────────────────────────────────────────────────────
   if (pathname === "/") {
     if (!user) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
@@ -77,22 +72,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // ── 3. Unauthenticated — send to sign-in ────────────────────────────────
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     return NextResponse.redirect(url);
   }
 
-  // ── 4. Role-based access control ────────────────────────────────────────
   const role = user.app_metadata?.role as UserRole | undefined;
 
   for (const route of ROUTE_ROLE_MAP) {
     if (!pathname.startsWith(route.prefix)) continue;
 
-    // User is in a protected area — check if their role is allowed
     if (!role || !route.allowed.includes(role)) {
-      // Redirect to their correct area instead of 403
       const home = roleHome(role) ?? "/sign-in";
       return NextResponse.redirect(new URL(home, request.url));
     }
@@ -102,9 +93,6 @@ export async function updateSession(request: NextRequest) {
   return supabaseResponse;
 }
 
-// ---------------------------------------------------------------------------
-// roleHome — the landing page after sign-in for each role
-// ---------------------------------------------------------------------------
 function roleHome(role: UserRole | undefined): string | undefined {
   if (role === "admin") return "/admin";
   if (role === "designer") return "/designer";

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -18,7 +19,7 @@ export default async function AdminUsersPage() {
   const [{ data: usersData }, { data: projectsData }] = await Promise.all([
     supabase
       .from("user_profiles")
-      .select("id, display_name, email, role")
+      .select("id, display_name, email, role, avatar_url")
       .in("role", ["admin", "designer"])
       .order("display_name"),
     supabase
@@ -29,6 +30,21 @@ export default async function AdminUsersPage() {
   ]);
 
   const users = usersData ?? [];
+
+  // Bulk-sign avatar URLs. One storage call for all paths avoids N round-trips.
+  const avatarPaths = users
+    .map((u) => u.avatar_url as string | undefined | null)
+    .filter((p): p is string => !!p);
+
+  const signedAvatarMap: Record<string, string> = {};
+  if (avatarPaths.length > 0) {
+    const { data: signedList } = await supabase.storage
+      .from("avatars")
+      .createSignedUrls(avatarPaths, 3600);
+    for (const entry of signedList ?? []) {
+      if (entry.signedUrl) signedAvatarMap[entry.path] = entry.signedUrl;
+    }
+  }
 
   // Count active projects per designer
   const activeMap: Record<string, number> = {};
@@ -64,23 +80,16 @@ export default async function AdminUsersPage() {
         ) : (
           <div className="divide-y divide-surface">
             {users.map((u) => {
-              const initials = u.display_name
-                .split(" ")
-                .filter(Boolean)
-                .map((n: string) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase();
-
               return (
                 <div
                   key={u.id}
                   className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 px-5 py-4 items-center"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-semibold text-primary">{initials}</span>
-                    </div>
+                    <UserAvatar
+                      displayName={u.display_name}
+                      avatarUrl={signedAvatarMap[u.avatar_url ?? ""] ?? null}
+                    />
                     <span className="text-sm font-medium text-ink truncate">{u.display_name}</span>
                   </div>
                   <span className="text-sm text-dim truncate">{u.email}</span>
@@ -111,7 +120,7 @@ export default async function AdminUsersPage() {
       </SectionCard>
 
       <p className="text-xs text-muted">
-        Company-side users (company_admin, project_manager) are managed within each company record.
+        Company-side users (company_admin, client_admin, project_manager) are managed within each company record.
       </p>
     </div>
   );

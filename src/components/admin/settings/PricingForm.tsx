@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import {
@@ -9,12 +9,19 @@ import {
   type PricingActionState,
 } from "@/app/(admin)/admin/settings/pricing/actions";
 import type { PricingRule } from "@/lib/queries/pricing";
+import { Select, type SelectOption } from "@/components/ui/Select";
 
-const AUTHORITY_OPTIONS = [
+const AUTHORITY_OPTIONS: SelectOption[] = [
+  { value: "", label: "Any" },
+  { value: "state", label: "State" },
   { value: "county", label: "County" },
-  { value: "njdot", label: "NJDOT (State)" },
   { value: "municipal", label: "Municipal" },
-  { value: "other", label: "Other" },
+];
+
+const WORK_TYPE_OPTIONS: SelectOption[] = [
+  { value: "", label: "Any" },
+  { value: "aerial", label: "Aerial" },
+  { value: "underground", label: "Underground" },
 ];
 
 const US_STATES = [
@@ -25,9 +32,29 @@ const US_STATES = [
   "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ];
 
+const STATE_OPTIONS: SelectOption[] = [
+  { value: "", label: "Any state" },
+  ...US_STATES.map((s) => ({ value: s, label: s })),
+];
+
+const NJ_COUNTIES = [
+  "Atlantic", "Bergen", "Burlington", "Camden", "Cape May", "Cumberland",
+  "Essex", "Gloucester", "Hudson", "Hunterdon", "Mercer", "Middlesex",
+  "Monmouth", "Morris", "Ocean", "Passaic", "Salem", "Somerset",
+  "Sussex", "Union", "Warren",
+];
+
+const NJ_COUNTY_OPTIONS: SelectOption[] = [
+  { value: "", label: "Any county" },
+  ...NJ_COUNTIES.map((c) => ({ value: c, label: c })),
+];
+
+type CompanyOption = { id: string; name: string };
+
 type Props = {
   item?: PricingRule;
   cancelHref: string;
+  companies: CompanyOption[];
 };
 
 const initialState: PricingActionState = { error: null };
@@ -56,7 +83,8 @@ function Field({ label, children, hint }: { label: string; children: React.React
   );
 }
 
-const inputCls = "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20";
+const inputCls =
+  "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-shadow focus:ring-2 focus:ring-primary/20";
 const inputStyle = { border: "1px solid #d4dde4" };
 
 function DecInput({ name, defaultValue, placeholder }: { name: string; defaultValue?: number | null; placeholder?: string }) {
@@ -91,10 +119,91 @@ function MultiplierInput({ name, defaultValue }: { name: string; defaultValue?: 
   );
 }
 
-export function PricingForm({ item, cancelHref }: Props) {
+function FeeMarkupRow({
+  label,
+  includeName,
+  markupName,
+  percentName,
+  initialInclude,
+  initialMarkup,
+  initialPercent,
+}: {
+  label: string;
+  includeName: string;
+  markupName: string;
+  percentName: string;
+  initialInclude: boolean;
+  initialMarkup: boolean;
+  initialPercent: number;
+}) {
+  const [include, setInclude] = useState(initialInclude);
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          name={includeName}
+          checked={include}
+          onChange={(e) => setInclude(e.target.checked)}
+          className="w-4 h-4 rounded accent-primary"
+        />
+        <p className="text-sm text-ink">{label}</p>
+      </label>
+      {include && (
+        <div className="ml-7 flex items-center gap-4 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name={markupName}
+              defaultChecked={initialMarkup}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            <span className="text-xs text-dim">Apply markup</span>
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              name={percentName}
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              defaultValue={initialPercent}
+              className="w-20 bg-surface rounded-lg px-2 py-1.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+              style={inputStyle}
+            />
+            <span className="text-xs text-muted">%</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PricingForm({ item, cancelHref, companies }: Props) {
   const isEdit = !!item;
   const action = isEdit ? updatePricingRule : createPricingRule;
   const [state, formAction] = useActionState(action, initialState);
+
+  // Controlled state for the four custom Select components + the cascading
+  // county. Each Select reads `value` from state and writes through its
+  // `onChange` so the form's hidden input always reflects the latest pick.
+  const [companyId, setCompanyId] = useState<string>(item?.company_id ?? "");
+  const [workType, setWorkType] = useState<string>(item?.work_type ?? "");
+  const [selectedState, setSelectedState] = useState<string>(item?.state ?? "");
+  const [authorityType, setAuthorityType] = useState<string>(item?.authority_type ?? "");
+  const [county, setCounty] = useState<string>(item?.county ?? "");
+
+  const companyOptions: SelectOption[] = [
+    { value: "", label: "Any company" },
+    ...companies.map((c) => ({ value: c.id, label: c.name })),
+  ];
+
+  const handleStateChange = (next: string) => {
+    setSelectedState(next);
+    // Reset county when the state changes — the available options (or the
+    // free-text expectations) shift.
+    if (next !== selectedState) setCounty("");
+  };
 
   return (
     <form action={formAction} className="space-y-7">
@@ -124,27 +233,57 @@ export function PricingForm({ item, cancelHref }: Props) {
           The most specific matching rule wins.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="State">
-            <select name="state" defaultValue={item?.state ?? ""} className={inputCls} style={inputStyle}>
-              <option value="">Any state</option>
-              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
-          <Field label="County">
-            <input
-              name="county"
-              type="text"
-              defaultValue={item?.county ?? ""}
-              placeholder="e.g. Bergen"
-              className={inputCls}
-              style={inputStyle}
+          <Field label="Company">
+            <Select
+              name="company_id"
+              value={companyId}
+              onChange={setCompanyId}
+              options={companyOptions}
             />
           </Field>
+          <Field label="Work Type">
+            <Select
+              name="work_type"
+              value={workType}
+              onChange={setWorkType}
+              options={WORK_TYPE_OPTIONS}
+            />
+          </Field>
+          <Field label="State">
+            <Select
+              name="state"
+              value={selectedState}
+              onChange={handleStateChange}
+              options={STATE_OPTIONS}
+            />
+          </Field>
+          <Field label="County">
+            {selectedState === "NJ" ? (
+              <Select
+                name="county"
+                value={county}
+                onChange={setCounty}
+                options={NJ_COUNTY_OPTIONS}
+              />
+            ) : (
+              <input
+                name="county"
+                type="text"
+                value={county}
+                onChange={(e) => setCounty(e.target.value)}
+                placeholder="e.g. Bergen"
+                className={inputCls}
+                style={inputStyle}
+              />
+            )}
+          </Field>
           <Field label="Authority Type">
-            <select name="authority_type" defaultValue={item?.authority_type ?? ""} className={inputCls} style={inputStyle}>
-              <option value="">Any</option>
-              {AUTHORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <Select
+              name="authority_type"
+              value={authorityType}
+              onChange={setAuthorityType}
+              options={AUTHORITY_OPTIONS}
+            />
           </Field>
         </div>
       </div>
@@ -152,18 +291,12 @@ export function PricingForm({ item, cancelHref }: Props) {
       {/* Pricing Factors */}
       <div>
         <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Pricing Factors</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Base Project Fee">
             <DecInput name="base_project_fee" defaultValue={item?.base_project_fee} />
           </Field>
           <Field label="Per Sheet Fee">
             <DecInput name="per_sheet_fee" defaultValue={item?.per_sheet_fee} />
-          </Field>
-          <Field label="Per Mile Fee" hint="Optional">
-            <DecInput name="per_mile_fee" defaultValue={item?.per_mile_fee} />
-          </Field>
-          <Field label="Rush Fee" hint="Added to total when applicable">
-            <DecInput name="rush_fee" defaultValue={item?.rush_fee} />
           </Field>
         </div>
       </div>
@@ -190,36 +323,38 @@ export function PricingForm({ item, cancelHref }: Props) {
       {/* Fees */}
       <div>
         <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Fee Pass-Throughs</p>
-        <div className="space-y-3 mb-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="include_application_fee"
-              defaultChecked={item?.include_application_fee ?? false}
-              className="w-4 h-4 rounded accent-primary"
-            />
-            <div>
-              <p className="text-sm text-ink">Include application fee from jurisdiction</p>
-              <p className="text-xs text-muted">Adds the matched jurisdiction&apos;s application_fee to the estimate.</p>
-            </div>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="include_jurisdiction_fee"
-              defaultChecked={item?.include_jurisdiction_fee ?? false}
-              className="w-4 h-4 rounded accent-primary"
-            />
-            <div>
-              <p className="text-sm text-ink">Include jurisdiction fee from jurisdiction</p>
-              <p className="text-xs text-muted">Adds the matched jurisdiction&apos;s jurisdiction_fee to the estimate.</p>
-            </div>
-          </label>
-        </div>
-        <div className="max-w-xs">
-          <Field label="FiberPro Admin Fee" hint="Added after multipliers are applied.">
-            <DecInput name="fiberpro_admin_fee" defaultValue={item?.fiberpro_admin_fee} />
-          </Field>
+        <p className="text-xs text-muted mb-4">
+          Toggle each fee independently. When a fee is included, an optional admin markup can be applied
+          on top — billed as a separate line item on the invoice.
+        </p>
+        <div className="space-y-4">
+          <FeeMarkupRow
+            label="Include Application Fee"
+            includeName="include_application_fee"
+            markupName="application_fee_markup"
+            percentName="application_fee_markup_percent"
+            initialInclude={item?.include_application_fee ?? false}
+            initialMarkup={item?.application_fee_markup ?? true}
+            initialPercent={item?.application_fee_markup_percent ?? 10}
+          />
+          <FeeMarkupRow
+            label="Include Permit Fee"
+            includeName="include_permit_fee"
+            markupName="permit_fee_markup"
+            percentName="permit_fee_markup_percent"
+            initialInclude={item?.include_permit_fee ?? false}
+            initialMarkup={item?.permit_fee_markup ?? true}
+            initialPercent={item?.permit_fee_markup_percent ?? 10}
+          />
+          <FeeMarkupRow
+            label="Include Review Fee"
+            includeName="include_review_fee"
+            markupName="review_fee_markup"
+            percentName="review_fee_markup_percent"
+            initialInclude={item?.include_review_fee ?? false}
+            initialMarkup={item?.review_fee_markup ?? true}
+            initialPercent={item?.review_fee_markup_percent ?? 10}
+          />
         </div>
       </div>
 

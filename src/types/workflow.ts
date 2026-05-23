@@ -1,3 +1,17 @@
+import type { PageManifest } from "@/lib/utils/packageAssembly";
+
+// ── Template slot ─────────────────────────────────────────────────────────────
+// Resolved page_templates row included in generation metadata so n8n can
+// download and apply templates without additional DB lookups.
+
+export type TemplateSlot = {
+  id: string;
+  name: string;
+  storage_path: string | null;
+  placement_box: { x: number; y: number; width: number; height: number } | null;
+  field_mappings: Record<string, unknown> | null;
+};
+
 // Workflow and automation types.
 // These map to the workflow_jobs table and n8n automation concepts.
 // The app enqueues jobs (status = "pending"); n8n executes them and writes
@@ -93,7 +107,33 @@ export interface PermitPackageMetadata {
   file_ids: {
     sld: string[];                      // project_files.id for SLD sheets
     tcp: string[];                      // project_files.id for TCP sheets
-    cover_template_id: string | null;   // cover_sheet_templates.id
+    cover_template_id: string | null;   // cover_sheet_templates.id (legacy; prefer blueprint_id)
+  };
+  // The active package_blueprints.id for this project's authority at enqueue time.
+  // Populated by enqueuePackageGeneration; used by generate-package to resolve
+  // blueprint-specific template overrides (cover, application, certification).
+  blueprint_id: string | null;
+  // Deterministic page manifest computed at enqueue time.
+  // Records assembly order, global page numbers, and total page count.
+  // Added in Phase 4B; optional for backward-compat with older jobs.
+  page_manifest?: PageManifest;
+  // Resolved blueprint slot templates — all fields needed by the generation engine
+  // so n8n can apply wrappers without extra DB lookups. Each slot includes the
+  // template PDF storage path, placement box, and field mappings.
+  // Null slots = that document type not configured in this blueprint.
+  blueprint_slots?: {
+    cover:       TemplateSlot | null;
+    tcp_wrapper: TemplateSlot | null;
+    tcd_wrapper: TemplateSlot | null;
+    sld_wrapper: TemplateSlot | null;
+    app_form:    TemplateSlot | null;
+    cert_form:   TemplateSlot | null;
+  };
+  // SLD and TCP files with storage paths — n8n uses these to download PDFs.
+  // Parallel arrays to file_ids.sld / file_ids.tcp; same order.
+  file_details?: {
+    sld: Array<{ id: string; storage_path: string }>;
+    tcp: Array<{ id: string; storage_path: string }>;
   };
 }
 

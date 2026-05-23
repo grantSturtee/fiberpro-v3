@@ -106,5 +106,5 @@ export async function getJurisdiction(
     .single();
 
   if (error || !data) return null;
-  return data as JurisdictionSummary;
+  return data as unknown as JurisdictionSummary;
 }

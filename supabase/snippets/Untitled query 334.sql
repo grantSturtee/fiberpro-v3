@@ -1,0 +1,1 @@
+select unnest(enum_range(null::user_role));

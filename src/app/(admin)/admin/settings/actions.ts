@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { normalizeUpperFormField } from "@/lib/utils/textNormalization";
 
 export type SettingsActionState = {
   error: string | null;
@@ -13,12 +14,44 @@ export type SettingsActionState = {
 
 async function requireAdmin() {
   const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return { supabase: null, userId: null, error: "Not signed in." };
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("id", userData.user.id).single();
-  if (profile?.role !== "admin") return { supabase: null, userId: null, error: "Admin required." };
-  return { supabase, userId: userData.user.id, error: null };
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims) return { supabase: null, userId: null, error: "Not signed in." };
+  const role = (data.claims.app_metadata as { role?: string })?.role;
+  if (role !== "admin") return { supabase: null, userId: null, error: "Admin required." };
+  const userId = data.claims.sub as string;
+  return { supabase, userId, error: null };
+}
+
+// =============================================================================
+// D0. GLOBAL APP SETTINGS
+// =============================================================================
+
+const VALID_CADENCE_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+export async function updateCadence(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const { supabase, error: authError } = await requireAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const raw = parseInt((formData.get("cadence_days") as string) ?? "", 10);
+  if (!VALID_CADENCE_DAYS.includes(raw as (typeof VALID_CADENCE_DAYS)[number])) {
+    return { error: "Invalid cadence value." };
+  }
+
+  const { error } = await supabase
+    .from("app_settings")
+    .upsert({ key: "project_update_cadence_days", value: String(raw), updated_at: new Date().toISOString() });
+
+  if (error) {
+    console.error("updateCadence error:", error);
+    return { error: "Failed to save setting." };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/updates");
+  return { error: null, success: true };
 }
 
 // =============================================================================
@@ -32,11 +65,13 @@ export async function addTCDEntry(
   const { supabase, error: authError } = await requireAdmin();
   if (authError || !supabase) return { error: authError };
 
-  const code = (formData.get("code") as string)?.trim().toUpperCase();
-  const title = (formData.get("title") as string)?.trim() || null;
+  // Permit-facing TCD identifiers are normalized to uppercase. description is
+  // free-form prose and intentionally preserved as-is.
+  const code = normalizeUpperFormField(formData, "code");
+  const title = normalizeUpperFormField(formData, "title");
   const description = (formData.get("description") as string)?.trim();
-  const category = (formData.get("category") as string)?.trim() || null;
-  const state = (formData.get("state") as string)?.trim() || null;
+  const category = normalizeUpperFormField(formData, "category");
+  const state = normalizeUpperFormField(formData, "state");
   const sortOrder = parseInt((formData.get("sort_order") as string) || "0", 10) || 0;
 
   if (!code) return { error: "TCD code is required." };
@@ -94,11 +129,12 @@ export async function updateTCDEntry(
   if (authError || !supabase) return { error: authError };
 
   const id = (formData.get("id") as string)?.trim();
-  const code = (formData.get("code") as string)?.trim().toUpperCase();
-  const title = (formData.get("title") as string)?.trim() || null;
+  // See addTCDEntry for normalization rationale.
+  const code = normalizeUpperFormField(formData, "code");
+  const title = normalizeUpperFormField(formData, "title");
   const description = (formData.get("description") as string)?.trim();
-  const category = (formData.get("category") as string)?.trim() || null;
-  const state = (formData.get("state") as string)?.trim() || null;
+  const category = normalizeUpperFormField(formData, "category");
+  const state = normalizeUpperFormField(formData, "state");
   const sortOrder = parseInt((formData.get("sort_order") as string) || "0", 10) || 0;
 
   if (!id) return { error: "Missing ID." };
@@ -112,6 +148,13 @@ export async function updateTCDEntry(
     if (file.type !== "application/pdf") return { error: "File must be a PDF." };
     if (file.size > 20 * 1024 * 1024) return { error: "PDF must be 20 MB or less." };
 
+    console.log("STEP 1: action start");
+    console.log("STEP 2: file detected", file.name);
+
+    const bytes = await file.arrayBuffer(); // read stream ONCE
+    console.log("STEP 3: buffer created", bytes.byteLength);
+    const buffer = Buffer.from(bytes);
+
     const timestamp = Date.now();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${code.toLowerCase()}/${timestamp}_${safeName}`;
@@ -119,7 +162,9 @@ export async function updateTCDEntry(
     const storageClient = createServiceClient();
     const { error: uploadError } = await storageClient.storage
       .from("tcd-pdfs")
-      .upload(path, file, { contentType: "application/pdf", upsert: false });
+      .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+
+    console.log("STEP 4: upload finished", uploadError);
 
     if (uploadError) {
       console.error("TCD PDF upload error:", uploadError.message, uploadError);
@@ -127,6 +172,8 @@ export async function updateTCDEntry(
     }
     storagePath = path;
   }
+
+  console.log("STEP 5: before return");
 
   const updatePayload: Record<string, unknown> = {
     code, title, description, category, state, sort_order: sortOrder,
@@ -141,7 +188,6 @@ export async function updateTCDEntry(
     return { error: "Failed to update TCD entry." };
   }
 
-  revalidatePath("/admin/settings/tcd");
   return { error: null, success: true };
 }
 
@@ -164,6 +210,46 @@ export async function deactivateTCDEntry(
   return { error: null, success: true };
 }
 
+export async function deleteTCDEntry(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const { supabase, error: authError } = await requireAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const id = (formData.get("id") as string)?.trim();
+  if (!id) return { error: "Missing ID." };
+
+  const { data: item } = await supabase
+    .from("tcd_library")
+    .select("storage_path")
+    .eq("id", id)
+    .single();
+
+  if (!item) return { error: "TCD entry not found." };
+
+  const { error: deleteError } = await supabase
+    .from("tcd_library")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    if (deleteError.code === "23503") {
+      return { error: "This TCD sheet is used in one or more projects. Remove it from all projects first." };
+    }
+    console.error("TCD delete error:", deleteError);
+    return { error: "Failed to delete TCD entry." };
+  }
+
+  if (item.storage_path) {
+    const storageClient = createServiceClient();
+    await storageClient.storage.from("tcd-pdfs").remove([item.storage_path]);
+  }
+
+  revalidatePath("/admin/settings/tcd");
+  return { error: null, success: true };
+}
+
 // =============================================================================
 // D2. COVER SHEET TEMPLATES
 // =============================================================================
@@ -175,21 +261,29 @@ export async function addCoverTemplate(
   const { supabase, error: authError } = await requireAdmin();
   if (authError || !supabase) return { error: authError };
 
-  const name = (formData.get("name") as string)?.trim();
+  // Permit-facing template metadata is normalized to uppercase. authority_type
+  // and work_type are system enum keys (validated against fixed lowercase sets
+  // below) and must NOT be uppercased.
+  const name = normalizeUpperFormField(formData, "name");
   const authorityTypeRaw = (formData.get("authority_type") as string)?.trim() || null;
-  const county = (formData.get("county") as string)?.trim() || null;
-  const state = (formData.get("state") as string)?.trim() || null;
+  const county = normalizeUpperFormField(formData, "county");
+  const state = normalizeUpperFormField(formData, "state");
   const workType = (formData.get("work_type") as string)?.trim() || null;
-  const notes = (formData.get("notes") as string)?.trim() || null;
-  const isDefault = formData.get("is_default") === "true";
 
   if (!name) return { error: "Template name is required." };
 
-  const validAuthTypes = ["county", "njdot", "municipal", "other"];
+  const validAuthTypes = ["state", "county", "township"];
   const authorityType = authorityTypeRaw && validAuthTypes.includes(authorityTypeRaw)
     ? authorityTypeRaw : null;
 
+  const peRequired = formData.get("pe_required") === "true";
+
+  // Validate work_type against the accepted set — reject any stale "both"/"any" values.
+  const validWorkTypes = ["aerial", "underground"];
+  const normalizedWorkType = workType && validWorkTypes.includes(workType) ? workType : null;
+
   let storagePath: string | null = null;
+  let uploadedFilename: string | null = null;
   const file = formData.get("template_file") as File | null;
   if (file && file.size > 0) {
     if (file.type !== "application/pdf") return { error: "Template file must be a PDF." };
@@ -209,23 +303,44 @@ export async function addCoverTemplate(
       return { error: `File upload failed: ${uploadError.message}` };
     }
     storagePath = path;
+    uploadedFilename = safeName;
   }
 
-  const { error: insertError } = await supabase.from("cover_sheet_templates").insert({
-    name,
-    authority_type: authorityType,
-    county,
-    state,
-    work_type: workType,
-    notes,
-    storage_path: storagePath,
-    is_default: isDefault,
-    is_active: true,
-  });
+  // Pre-generate the ID so we can link the version record without needing
+  // INSERT ... RETURNING, which can silently fail with certain RLS policies.
+  const newTemplateId = crypto.randomUUID();
+
+  const { error: insertError } = await supabase
+    .from("cover_sheet_templates")
+    .insert({
+      id: newTemplateId,
+      name,
+      authority_type: authorityType,
+      county,
+      state,
+      work_type: normalizedWorkType,
+      storage_path: storagePath,
+      pe_required: peRequired,
+      is_active: true,
+    });
 
   if (insertError) {
     console.error("Cover template insert error:", insertError);
-    return { error: "Failed to add template." };
+    return { error: `Failed to add template. (${insertError.code ?? insertError.message})` };
+  }
+
+  // Create first version record (live) when a PDF was provided.
+  if (storagePath && uploadedFilename) {
+    const { error: versionError } = await supabase.from("cover_template_versions").insert({
+      cover_template_id: newTemplateId,
+      storage_path: storagePath,
+      filename: uploadedFilename,
+      is_live: true,
+    });
+    if (versionError) {
+      console.error("Cover version insert error:", versionError);
+      // Non-fatal — template exists, version can be uploaded from the edit page.
+    }
   }
 
   revalidatePath("/admin/settings/covers");
@@ -240,42 +355,31 @@ export async function updateCoverTemplate(
   if (authError || !supabase) return { error: authError };
 
   const id = (formData.get("id") as string)?.trim();
-  const name = (formData.get("name") as string)?.trim();
+  // See addCoverTemplate for normalization rationale.
+  const name = normalizeUpperFormField(formData, "name");
   const authorityTypeRaw = (formData.get("authority_type") as string)?.trim() || null;
-  const county = (formData.get("county") as string)?.trim() || null;
-  const state = (formData.get("state") as string)?.trim() || null;
+  const county = normalizeUpperFormField(formData, "county");
+  const state = normalizeUpperFormField(formData, "state");
   const workType = (formData.get("work_type") as string)?.trim() || null;
-  const notes = (formData.get("notes") as string)?.trim() || null;
-  const isDefault = formData.get("is_default") === "true";
 
   if (!id) return { error: "Missing ID." };
   if (!name) return { error: "Template name is required." };
 
-  const validAuthTypes = ["county", "njdot", "municipal", "other"];
+  const validAuthTypes = ["state", "county", "township"];
   const authorityType = authorityTypeRaw && validAuthTypes.includes(authorityTypeRaw)
     ? authorityTypeRaw : null;
 
-  let storagePath: string | undefined = undefined;
-  const file = formData.get("template_file") as File | null;
-  if (file && file.size > 0) {
-    if (file.type !== "application/pdf") return { error: "Template file must be a PDF." };
-    const timestamp = Date.now();
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${timestamp}_${safeName}`;
-    const storageClient = createServiceClient();
-    const { error: uploadError } = await storageClient.storage
-      .from("cover-templates")
-      .upload(path, file, { contentType: "application/pdf", upsert: false });
-    if (uploadError) return { error: `File upload failed: ${uploadError.message}` };
-    storagePath = path;
-  }
+  const peRequired = formData.get("pe_required") === "true";
 
-  const updatePayload: Record<string, unknown> = {
-    name, authority_type: authorityType, county, state, work_type: workType, notes, is_default: isDefault,
-  };
-  if (storagePath !== undefined) updatePayload.storage_path = storagePath;
+  const { error } = await supabase.from("cover_sheet_templates").update({
+    name,
+    authority_type: authorityType,
+    county,
+    state,
+    work_type: workType,
+    pe_required: peRequired,
+  }).eq("id", id);
 
-  const { error } = await supabase.from("cover_sheet_templates").update(updatePayload).eq("id", id);
   if (error) return { error: "Failed to update template." };
 
   revalidatePath("/admin/settings/covers");
@@ -301,6 +405,25 @@ export async function deactivateCoverTemplate(
   return { error: null, success: true };
 }
 
+export async function activateCoverTemplate(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const { supabase, error: authError } = await requireAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const id = (formData.get("id") as string)?.trim();
+  if (!id) return { error: "Missing ID." };
+
+  const { error } = await supabase
+    .from("cover_sheet_templates").update({ is_active: true }).eq("id", id);
+
+  if (error) return { error: "Failed to activate template." };
+
+  revalidatePath("/admin/settings/covers");
+  return { error: null, success: true };
+}
+
 // =============================================================================
 // D3. PRICING RULES — moved to /admin/settings/pricing/actions.ts
 // =============================================================================
@@ -316,10 +439,13 @@ export async function addJurisdiction(
   const { supabase, error: authError } = await requireAdmin();
   if (authError || !supabase) return { error: authError };
 
-  const state = (formData.get("state") as string)?.trim() || "NJ";
-  const county = (formData.get("county") as string)?.trim() || null;
-  const municipality = (formData.get("municipality") as string)?.trim() || null;
-  const authorityName = (formData.get("authority_name") as string)?.trim() || null;
+  // Permit-facing jurisdiction location/name fields are normalized to upper.
+  // authority_type / submission_method are enum keys; submission URLs, emails,
+  // and the *_notes prose are excluded per Phase 2 rules.
+  const state = normalizeUpperFormField(formData, "state") ?? "NJ";
+  const county = normalizeUpperFormField(formData, "county");
+  const municipality = normalizeUpperFormField(formData, "municipality");
+  const authorityName = normalizeUpperFormField(formData, "authority_name");
   const authorityTypeRaw = (formData.get("authority_type") as string)?.trim() || null;
   const submissionMethod = (formData.get("submission_method") as string)?.trim() || null;
   const submissionUrl = (formData.get("submission_url") as string)?.trim() || null;

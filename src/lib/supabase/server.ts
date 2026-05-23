@@ -1,7 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export async function createClient() {
+// cache() deduplicates across an entire React render tree (layout + page + all
+// server components in the same request). Without it, each createClient() call
+// returns a *separate* instance with its own empty in-memory setItems cache.
+// When one instance refreshes an expiring token, the new token lives only in
+// that instance's setItems — a sibling instance still sees the old cookie
+// value, decides the token is near-expiry, and issues a second concurrent
+// refresh that Supabase rejects with 409 "Too many concurrent token refresh
+// requests on the same session". cache() collapses all calls to one instance
+// so the refreshed token propagates to every consumer in the same render.
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -25,4 +35,4 @@ export async function createClient() {
       },
     }
   );
-}
+});

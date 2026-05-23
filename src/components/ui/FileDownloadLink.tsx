@@ -26,13 +26,17 @@ export function FileDownloadLink({ href }: { href: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
+      title="Download file"
       className={
         cooldown
-          ? "text-xs text-faint flex-shrink-0 cursor-default"
-          : "text-xs text-primary hover:underline flex-shrink-0"
+          ? "text-faint flex-shrink-0 cursor-default"
+          : "text-muted hover:text-primary transition-colors flex-shrink-0"
       }
     >
-      Download
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
     </a>
   );
 }

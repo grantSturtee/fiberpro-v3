@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { SettingsBackButton } from "@/components/ui/SettingsBackButton";
 import { JurisdictionDeactivateBtn } from "@/components/admin/settings/JurisdictionDeactivateBtn";
 
 export const metadata: Metadata = { title: "Jurisdictions" };
@@ -73,7 +74,7 @@ export default async function AdminJurisdictionsPage({ searchParams }: PageProps
   if (filterCounty) query = query.ilike("county", `%${filterCounty}%`);
 
   const { data } = await query;
-  const items = (data ?? []) as JurRow[];
+  const items = (data ?? []) as unknown as JurRow[];
   const active = items.filter((i) => i.is_active);
   const inactive = items.filter((i) => !i.is_active);
   const hasFilter = !!filterState || !!filterCounty;
@@ -82,11 +83,7 @@ export default async function AdminJurisdictionsPage({ searchParams }: PageProps
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs text-muted mb-2">
-            <Link href="/admin/settings" className="hover:text-primary transition-colors">Settings</Link>
-            <span>/</span>
-            <span className="text-ink">Jurisdictions</span>
-          </div>
+          <SettingsBackButton href="/admin/settings" label="Settings" />
           <h1 className="text-xl font-semibold text-ink">Jurisdictions</h1>
           <p className="mt-0.5 text-sm text-muted">
             {active.length} active{hasFilter ? " (filtered)" : ""}

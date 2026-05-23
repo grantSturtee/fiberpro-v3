@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { updateUserProfile, type UpdateUserState } from "@/app/(admin)/admin/users/actions";
@@ -24,14 +24,19 @@ type UserProfile = {
   role: string;
 };
 
-function SubmitButton() {
+function SubmitButton({ canSave }: { canSave: boolean }) {
   const { pending } = useFormStatus();
+  const disabled = pending || !canSave;
   return (
     <button
       type="submit"
-      disabled={pending}
-      className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      disabled={disabled}
+      className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+      style={
+        !disabled
+          ? { background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)", color: "white" }
+          : { background: "#e3e9ec", color: "#9ba8b4" }
+      }
     >
       {pending ? "Saving…" : "Save Changes"}
     </button>
@@ -43,6 +48,33 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
 
   const isCompanyUser = ["company_admin", "project_manager"].includes(user.role);
   const roleOptions = isCompanyUser ? COMPANY_ROLE_OPTIONS : INTERNAL_ROLE_OPTIONS;
+
+  const [displayName, setDisplayName] = useState(user.display_name);
+  const [email, setEmail] = useState(user.email ?? "");
+  const [roleValue, setRoleValue] = useState(user.role);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const isDirty =
+    displayName !== user.display_name ||
+    email !== (user.email ?? "") ||
+    roleValue !== user.role ||
+    newPassword !== "" ||
+    confirmPassword !== "";
+
+  const passwordsFilled = newPassword.length > 0 || confirmPassword.length > 0;
+  const passwordsValid =
+    !passwordsFilled ||
+    (newPassword.length >= 8 && confirmPassword.length >= 8 && newPassword === confirmPassword);
+  const passwordMismatch =
+    passwordsFilled && newPassword.length > 0 && confirmPassword.length > 0 && newPassword !== confirmPassword;
+
+  const isValid =
+    displayName.trim().length > 0 &&
+    email.trim().length > 0 &&
+    passwordsValid;
+
+  const canSave = isDirty && isValid;
 
   const inputCls =
     "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20";
@@ -56,14 +88,13 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
-          <label className={labelCls}>
-            Display Name<span className="text-red-500 ml-0.5">*</span>
-          </label>
+          <label className={labelCls}>Display Name</label>
           <input
             name="display_name"
             type="text"
             required
-            defaultValue={user.display_name}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
             className={inputCls}
             style={borderStyle}
           />
@@ -71,11 +102,17 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
 
         <div className="sm:col-span-2">
           <label className={labelCls}>Email</label>
-          <p className="text-sm text-ink px-3.5 py-2.5 bg-canvas rounded-lg" style={borderStyle}>
-            {user.email ?? "—"}
-          </p>
+          <input
+            name="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputCls}
+            style={borderStyle}
+          />
           <p className="mt-1 text-xs text-muted">
-            Email changes require the user to confirm via a verification link. Update directly in Supabase if needed.
+            Email changes affect the user&apos;s login credentials.
           </p>
         </div>
 
@@ -83,7 +120,8 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
           <label className={labelCls}>Role</label>
           <select
             name="role"
-            defaultValue={user.role}
+            value={roleValue}
+            onChange={(e) => setRoleValue(e.target.value)}
             className={`${inputCls} cursor-pointer`}
             style={borderStyle}
           >
@@ -94,10 +132,14 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
         </div>
       </div>
 
-      {/* Password reset section */}
       <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5 space-y-4">
         <p className="text-xs font-semibold text-muted uppercase tracking-wider">Change Password</p>
-        <p className="text-xs text-muted -mt-2">Leave blank to keep the existing password.</p>
+        <div className="-mt-2 space-y-0.5">
+          <p className="text-xs text-amber-700 font-medium">
+            Changing the password affects the user&apos;s login immediately.
+          </p>
+          <p className="text-xs text-muted">Leave blank to keep the existing password.</p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>New Password</label>
@@ -107,6 +149,8 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
               minLength={8}
               autoComplete="new-password"
               placeholder="Min 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               className={inputCls}
               style={borderStyle}
             />
@@ -118,11 +162,16 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
               type="password"
               autoComplete="new-password"
               placeholder="Re-enter password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className={inputCls}
               style={borderStyle}
             />
           </div>
         </div>
+        {passwordMismatch && (
+          <p className="text-xs text-red-600 -mt-2">Passwords do not match.</p>
+        )}
       </div>
 
       {state.error && (
@@ -138,7 +187,7 @@ export function UserEditForm({ user, returnTo }: { user: UserProfile; returnTo: 
         <Link href={returnTo} className="text-sm text-dim hover:text-ink transition-colors">
           Cancel
         </Link>
-        <SubmitButton />
+        <SubmitButton canSave={canSave} />
       </div>
     </form>
   );

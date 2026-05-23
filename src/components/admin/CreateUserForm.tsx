@@ -62,7 +62,7 @@ export function CreateUserForm() {
             name="email"
             type="email"
             required
-            placeholder="jane@fiberpro.com"
+            placeholder="jane@granted.com"
             className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
                        outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
             style={{ border: "1px solid #d4dde4" }}
@@ -105,23 +105,6 @@ export function CreateUserForm() {
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="iu-confirm">
-            Confirm Password<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <input
-            id="iu-confirm"
-            name="confirm_password"
-            type="password"
-            required
-            minLength={8}
-            placeholder="Re-enter password"
-            autoComplete="new-password"
-            className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
-                       outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
-            style={{ border: "1px solid #d4dde4" }}
-          />
-        </div>
       </div>
 
       {state.error && (

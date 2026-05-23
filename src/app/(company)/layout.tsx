@@ -1,39 +1,78 @@
-import { CompanyHeader } from "@/components/company/CompanyHeader";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCompanyIdForUser, getCompany } from "@/lib/queries/projects";
+import { getCompanyMembership, getCompany } from "@/lib/queries/projects";
+import { CompanySidebar } from "@/components/company/CompanySidebar";
+import { CompanyTopbar } from "@/components/company/CompanyTopbar";
 
-// Company layout: polished client-facing shell.
-// Top navigation instead of sidebar — cleaner external portal feel.
-// Fetches company name once here so the header can display it without
-// a separate client-side fetch.
+// Company layout: sidebar + topbar shell.
+// Fetches company name, user display name, and membership role for nav gating.
 
 export default async function CompanyLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Best-effort company name fetch — if it fails, header degrades gracefully.
   let companyName: string | undefined;
+  let displayName: string | undefined;
+  let initials: string | undefined;
+  let companyArchived = false;
+  let memberRole: string | undefined;
+
   try {
     const supabase = await createClient();
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData.user) {
-      const companyId = await getCompanyIdForUser(supabase, userData.user.id);
-      if (companyId) {
-        const company = await getCompany(supabase, companyId);
+    // getClaims() reads JWT claims locally — no network round-trip, no token refresh.
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const claims = claimsData?.claims;
+
+    if (claims) {
+      const userId = claims.sub;
+      const [membership, profileData] = await Promise.all([
+        getCompanyMembership(supabase, userId),
+        supabase
+          .from("user_profiles")
+          .select("display_name")
+          .eq("id", userId)
+          .single(),
+      ]);
+
+      if (membership) {
+        memberRole = membership.role;
+        const company = await getCompany(supabase, membership.company_id);
         companyName = company?.name ?? undefined;
+        companyArchived = !!company?.archived_at;
       }
+
+      const name = profileData.data?.display_name || (claims.email ?? "") || "";
+      displayName = name;
+      initials = name
+        .split(" ")
+        .filter(Boolean)
+        .map((n: string) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "?";
     }
   } catch {
-    // Non-fatal — header renders without company name
+    // Non-fatal — shell renders without user/company info
+  }
+
+  if (companyArchived) {
+    redirect("/company-disabled");
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-surface">
-      <CompanyHeader companyName={companyName} />
-      <main className="flex-1 overflow-y-auto min-w-0">
-        {children}
-      </main>
+    <div className="flex h-screen overflow-hidden bg-surface">
+      <CompanySidebar role={memberRole} />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <CompanyTopbar
+          companyName={companyName}
+          displayName={displayName}
+          initials={initials}
+        />
+        <main className="flex-1 overflow-y-auto min-w-0">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

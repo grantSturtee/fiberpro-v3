@@ -15,7 +15,8 @@ type Props = {
 export default async function AdminUserEditPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { returnTo } = await searchParams;
-  const backHref = returnTo || "/admin/users";
+  const safeReturnTo = returnTo && returnTo.startsWith("/admin/") ? returnTo : null;
+  const backHref = safeReturnTo ?? "/admin/users";
 
   const supabase = await createClient();
 
@@ -27,20 +28,18 @@ export default async function AdminUserEditPage({ params, searchParams }: Props)
 
   if (!user) notFound();
 
-  const isCompanyUser = ["company_admin", "project_manager"].includes(user.role as string);
+  const isCompanyUser = ["company_admin", "client_admin", "project_manager"].includes(user.role as string);
 
   return (
     <div className="p-8 max-w-2xl mx-auto space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-xs text-muted mb-2">
-          {isCompanyUser ? (
-            <Link href="/admin/companies" className="hover:text-primary transition-colors">Companies</Link>
-          ) : (
-            <Link href="/admin/users" className="hover:text-primary transition-colors">Users</Link>
-          )}
-          <span>/</span>
-          <span className="text-ink">Edit User</span>
-        </div>
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink transition-colors mb-3"
+        >
+          <span aria-hidden="true">←</span>
+          <span>Back</span>
+        </Link>
         <h1 className="text-xl font-semibold text-ink">Edit User</h1>
         <p className="mt-0.5 text-sm text-muted">{user.display_name}</p>
       </div>

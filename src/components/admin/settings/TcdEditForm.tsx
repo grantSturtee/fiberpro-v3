@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateTCDEntry, type SettingsActionState } from "@/app/(admin)/admin/settings/actions";
 
 const initialState: SettingsActionState = { error: null };
-
-const TCD_CATEGORIES = ["shoulder", "lane", "highway", "ramp", "intersection", "other"] as const;
 
 const US_STATES = [
   { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
@@ -33,7 +32,6 @@ type TcdItem = {
   id: string;
   code: string;
   description: string;
-  category: string | null;
   state: string | null;
   storage_path: string | null;
 };
@@ -53,20 +51,15 @@ function SubmitButton() {
 }
 
 export function TcdEditForm({ item }: { item: TcdItem }) {
+  const router = useRouter();
   const [state, formAction] = useActionState(updateTCDEntry, initialState);
 
-  if (state.success) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg bg-green-50 px-4 py-3">
-          <p className="text-sm text-green-700 font-medium">Changes saved.</p>
-        </div>
-        <Link href="/admin/settings/tcd" className="text-sm text-primary hover:underline">
-          ← Back to TCD Library
-        </Link>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (state.success) {
+      router.push("/admin/settings/tcd");
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   const inputCls = "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20";
   const selectCls = "w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer";
@@ -82,24 +75,7 @@ export function TcdEditForm({ item }: { item: TcdItem }) {
             Code<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input name="code" type="text" required defaultValue={item.code}
-            className={inputCls} style={borderStyle} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-dim mb-1.5">Category</label>
-          <select name="category" defaultValue={item.category ?? ""}
-            className={selectCls} style={borderStyle}>
-            <option value="">Select…</option>
-            {TCD_CATEGORIES.map((c) => (
-              <option key={c} value={c} className="capitalize">{c}</option>
-            ))}
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-dim mb-1.5">
-            Description<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <input name="description" type="text" required defaultValue={item.description}
-            className={inputCls} style={borderStyle} />
+            className={`${inputCls} uppercase-input`} style={borderStyle} />
         </div>
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5">State</label>
@@ -110,6 +86,13 @@ export function TcdEditForm({ item }: { item: TcdItem }) {
               <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
             ))}
           </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-dim mb-1.5">
+            Description<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input name="description" type="text" required defaultValue={item.description}
+            className={inputCls} style={borderStyle} />
         </div>
         <div>
           <label className="block text-xs font-medium text-dim mb-1.5">

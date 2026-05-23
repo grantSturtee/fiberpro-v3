@@ -18,8 +18,3 @@ ALTER TABLE workflow_jobs
 -- Should already exist from initial schema but guard idempotently.
 ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS state text;
-
--- Index: efficient lookup of latest compute job per project.
-CREATE INDEX IF NOT EXISTS idx_workflow_jobs_project_computed
-  ON workflow_jobs (project_id, created_at DESC)
-  WHERE job_type = 'project_computed';

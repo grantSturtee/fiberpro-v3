@@ -40,6 +40,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Permit-facing input visual uppercase ─────────────────────
+   Visually presents typed text in uppercase. The submitted form
+   value is unchanged — server-side normalization (Phase 1/2) is
+   what actually persists the uppercased value. Placeholders are
+   excluded so hint copy ("e.g. 123 Main St") stays readable. */
+.uppercase-input {
+  text-transform: uppercase;
+}
+.uppercase-input::placeholder {
+  text-transform: none;
+}
+
 /* ── Thin scrollbars ───────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 5px;

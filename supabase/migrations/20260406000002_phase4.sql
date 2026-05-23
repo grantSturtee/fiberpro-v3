@@ -1,5 +1,5 @@
 -- =============================================================================
--- FiberPro V3 — Phase 4 Schema Updates
+-- GRANTED — Phase 4 Schema Updates
 -- =============================================================================
 -- · Adds state column to projects table (US state abbreviation)
 -- · Adds uploader_label to project_files (denormalized display name)

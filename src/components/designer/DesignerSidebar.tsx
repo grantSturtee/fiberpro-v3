@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { SignOutButton } from "@/components/ui/SignOutButton";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 
 function IconWork() {
   return (
@@ -23,7 +24,7 @@ const navItems = [
 type SidebarUser = {
   displayName: string;
   role: string;
-  initials: string;
+  avatarUrl?: string | null;
 };
 
 export function DesignerSidebar({ user }: { user: SidebarUser }) {
@@ -70,9 +71,7 @@ export function DesignerSidebar({ user }: { user: SidebarUser }) {
       {/* User identity */}
       <div className="px-3 py-3 flex-shrink-0">
         <div className="rounded-lg bg-wash px-3 py-2.5 flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-semibold text-primary">{user.initials}</span>
-          </div>
+          <UserAvatar displayName={user.displayName} avatarUrl={user.avatarUrl} />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-ink truncate">{user.displayName}</p>
             <p className="text-[10px] text-muted capitalize">{user.role}</p>

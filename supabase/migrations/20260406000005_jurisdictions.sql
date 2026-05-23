@@ -75,5 +75,5 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE TRIGGER set_jurisdictions_updated_at
     BEFORE UPDATE ON jurisdictions
-    FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 EXCEPTION WHEN duplicate_object THEN null; END $$;

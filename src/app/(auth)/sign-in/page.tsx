@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { SignInForm } from "./SignInForm";
+import { Logo } from "@/components/ui/Logo";
 
 export const metadata: Metadata = { title: "Sign In" };
 
 export default function SignInPage() {
   return (
     <div className="w-full max-w-sm">
-      {/* Wordmark */}
-      <div className="mb-8 text-center">
-        <span className="text-2xl font-bold text-ink tracking-tight">
-          Fiber<span className="text-primary">Pro</span>
-        </span>
+      <div className="mb-8 flex flex-col items-center">
+        <Logo variant="banner" />
         <p className="mt-1 text-sm text-muted">Operations Platform</p>
       </div>
 

@@ -5,8 +5,8 @@ import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import {
-  getCompanyIdForUser,
-  getCompanyProjectList,
+  getCompanyMembership,
+  getCompanyProjectListForUser,
 } from "@/lib/queries/projects";
 import { formatDate } from "@/lib/utils/format";
 
@@ -18,8 +18,8 @@ export default async function CompanyProjectsPage() {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/sign-in");
 
-  const companyId = await getCompanyIdForUser(supabase, userData.user.id);
-  if (!companyId) {
+  const membership = await getCompanyMembership(supabase, userData.user.id);
+  if (!membership) {
     return (
       <div className="p-8 max-w-5xl mx-auto">
         <p className="text-sm text-muted">
@@ -29,7 +29,8 @@ export default async function CompanyProjectsPage() {
     );
   }
 
-  const projects = await getCompanyProjectList(supabase, companyId);
+  const { company_id: companyId, role: memberRole } = membership;
+  const projects = await getCompanyProjectListForUser(supabase, companyId, userData.user.id, memberRole);
 
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
@@ -98,7 +99,7 @@ export default async function CompanyProjectsPage() {
                 <p className="text-sm text-dim">
                   {p.county ? `${p.county} County` : p.authority_type ?? "—"}
                 </p>
-                <ProjectStatusBadge status={p.status} variant="external" />
+                <ProjectStatusBadge status={p.unified_status} />
                 <p className="text-xs text-muted">{formatDate(p.created_at)}</p>
               </Link>
             ))}

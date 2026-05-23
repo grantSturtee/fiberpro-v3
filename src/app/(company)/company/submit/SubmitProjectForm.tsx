@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { AUTHORITY_TYPE_OPTIONS, US_STATES } from "@/lib/constants/authorities";
@@ -7,6 +8,17 @@ import { PLAN_TYPE_OPTIONS } from "@/lib/constants/project";
 import { submitProject, type SubmitProjectState } from "./actions";
 
 const initialState: SubmitProjectState = { error: null };
+
+// ── Public types ──────────────────────────────────────────────────────────────
+
+export type CompanyRole = "company_admin" | "project_manager";
+
+export type CompanyMember = {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  label: string;
+};
 
 // ── Form field primitives ─────────────────────────────────────────────────────
 
@@ -17,9 +29,10 @@ type FieldProps = {
   placeholder?: string;
   required?: boolean;
   hint?: string;
+  uppercase?: boolean;
 };
 
-function Field({ label, name, type = "text", placeholder, required, hint }: FieldProps) {
+function Field({ label, name, type = "text", placeholder, required, hint, uppercase }: FieldProps) {
   return (
     <div>
       <label className="block text-xs font-medium text-dim mb-1.5" htmlFor={name}>
@@ -32,8 +45,8 @@ function Field({ label, name, type = "text", placeholder, required, hint }: Fiel
         type={type}
         required={required}
         placeholder={placeholder}
-        className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
-                   outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+        className={`w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
+                   outline-none transition-shadow focus:ring-2 focus:ring-primary/20${uppercase ? " uppercase-input" : ""}`}
         style={{ border: "1px solid #d4dde4" }}
       />
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
@@ -74,7 +87,6 @@ function SelectField({ label, name, options, required, hint }: SelectFieldProps)
   );
 }
 
-// Read-only system-populated field — shows a value that will be set automatically.
 function SystemField({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div>
@@ -90,9 +102,90 @@ function SystemField({ label, value, hint }: { label: string; value: string; hin
   );
 }
 
+function MemberSelect({
+  label,
+  name,
+  members,
+  defaultValue,
+  emptyLabel,
+  selectPlaceholder,
+  hint,
+  visualRequired = false,
+}: {
+  label: string;
+  name: string;
+  members: CompanyMember[];
+  defaultValue?: string;
+  emptyLabel: string;
+  selectPlaceholder?: string;
+  hint?: string;
+  visualRequired?: boolean;
+}) {
+  const placeholder =
+    members.length === 0
+      ? emptyLabel
+      : selectPlaceholder ?? "Select…";
+  const resetKey = useMemo(
+    () => members.map((m) => m.userId).join("|") + "::" + (defaultValue ?? ""),
+    [members, defaultValue]
+  );
+  const disabled = members.length === 0;
+  return (
+    <div>
+      <label className="block text-xs font-medium text-dim mb-1.5" htmlFor={name}>
+        {label}
+        {visualRequired && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <select
+        key={resetKey}
+        id={name}
+        name={name}
+        defaultValue={defaultValue ?? ""}
+        disabled={disabled}
+        className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink
+                   outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer
+                   disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ border: "1px solid #d4dde4" }}
+      >
+        <option value="">{placeholder}</option>
+        {members.map((m) => (
+          <option key={m.userId} value={m.userId}>{m.label}</option>
+        ))}
+      </select>
+      {disabled && (
+        <p className="mt-1 text-xs text-amber-700">{emptyLabel}</p>
+      )}
+      {!disabled && hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
+
 // ── State select ──────────────────────────────────────────────────────────────
 
-function StateSelect() {
+function StateSelect({ allowedStates }: { allowedStates: string[] | null }) {
+  const configured = allowedStates !== null && allowedStates.length > 0;
+
+  if (!configured) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="state">
+          State<span className="text-red-500 ml-0.5">*</span>
+        </label>
+        <div
+          className="w-full bg-canvas rounded-lg px-3.5 py-2.5 text-sm text-muted"
+          style={{ border: "1px solid #d4dde4" }}
+        >
+          No states available
+        </div>
+      </div>
+    );
+  }
+
+  const stateOptions = US_STATES.filter((s) => allowedStates.includes(s.abbr));
+  const defaultState = stateOptions.find((s) => s.abbr === "NJ")
+    ? "NJ"
+    : (stateOptions[0]?.abbr ?? "");
+
   return (
     <div>
       <label className="block text-xs font-medium text-dim mb-1.5" htmlFor="state">
@@ -102,13 +195,13 @@ function StateSelect() {
         id="state"
         name="state"
         required
-        defaultValue="NJ"
+        defaultValue={defaultState}
         className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink
                    outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
         style={{ border: "1px solid #d4dde4" }}
       >
         <option value="">Select state…</option>
-        {US_STATES.map((s) => (
+        {stateOptions.map((s) => (
           <option key={s.abbr} value={s.abbr}>
             {s.name}
           </option>
@@ -118,46 +211,93 @@ function StateSelect() {
   );
 }
 
+// ── Role-aware contact section ────────────────────────────────────────────────
+
+function ContactsSection({
+  role,
+  currentUserLabel,
+  projectManagers,
+}: {
+  role: CompanyRole;
+  currentUserLabel: string;
+  projectManagers: CompanyMember[];
+}) {
+  if (role === "project_manager") {
+    // Server derives PM from membership — no form input needed.
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SystemField
+          label="Project Manager"
+          value={currentUserLabel}
+          hint="Auto-populated from your account"
+        />
+      </div>
+    );
+  }
+
+  // company_admin: full PM dropdown.
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <MemberSelect
+        label="Project Manager"
+        name="project_manager_id"
+        members={projectManagers}
+        selectPlaceholder="Select Project Manager"
+        emptyLabel="No project managers in this company."
+        visualRequired
+      />
+    </div>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 type SubmitProjectFormProps = {
-  submitterName: string;
-  companyManagerName: string | null;
+  role: CompanyRole;
+  currentUserLabel: string;
+  projectManagers: CompanyMember[];
+  allowedStates: string[] | null;
 };
 
 // ── Main form ─────────────────────────────────────────────────────────────────
 
 export function SubmitProjectForm({
-  submitterName,
-  companyManagerName,
+  role,
+  currentUserLabel,
+  projectManagers,
+  allowedStates,
 }: SubmitProjectFormProps) {
   const [state, formAction, pending] = useActionState(submitProject, initialState);
 
+  const noStatesConfigured = !allowedStates || allowedStates.length === 0;
+
   return (
     <form className="space-y-8" action={formAction}>
+
+      {noStatesConfigured && (
+        <div className="rounded-lg px-4 py-3" style={{ background: "#fffbe6", border: "1px solid #f0d080" }}>
+          <p className="text-sm font-medium" style={{ color: "#7a5800" }}>
+            This company is not configured to create projects in any state.
+          </p>
+          <p className="mt-0.5 text-xs" style={{ color: "#9a7010" }}>
+            Contact your administrator to enable project submissions.
+          </p>
+        </div>
+      )}
 
       {/* ── Contact & Reference ───────────────────────────────── */}
       <fieldset>
         <legend className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
           Contact &amp; Reference
         </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/*
-            Project Manager and Company Manager are system-driven:
-            - Project Manager = the signed-in user submitting this form
-            - Company Manager = the company admin on file for this account
-            These are shown for confirmation only; values are set by the server.
-          */}
-          <SystemField
-            label="Project Manager"
-            value={submitterName}
-            hint="Auto-populated from your account"
-          />
-          <SystemField
-            label="Company Manager"
-            value={companyManagerName ?? "—"}
-            hint="The company admin on file for your account"
-          />
+
+        <ContactsSection
+          role={role}
+          currentUserLabel={currentUserLabel}
+          projectManagers={projectManagers}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field
             label="Client Job Number"
             name="job_number_client"
@@ -173,26 +313,12 @@ export function SubmitProjectForm({
           Project Details
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2">
-            <Field
-              label="Job Name"
-              name="job_name"
-              placeholder="e.g. Aerial Installation — Route 46 SB"
-              required
-            />
-          </div>
           <Field
             label="Requested Approval Date"
             name="requested_approval_date"
             type="date"
             required
           />
-          {/*
-            Job Type here is the client-visible work classification:
-            Aerial / Underground / Mixed / Other.
-            This maps to type_of_plan in the DB. The internal operational
-            job_type (TCP / SLD / Full Package) is set by admin after intake review.
-          */}
           <SelectField
             label="Job Type"
             name="type_of_plan"
@@ -211,12 +337,35 @@ export function SubmitProjectForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <Field
-              label="Job Address / Route"
-              name="job_address"
-              placeholder="e.g. Route 46 SB, Lodi, NJ 07644"
+              label="Street Address"
+              name="street_address"
+              placeholder="e.g. 123 Main St"
               required
+              uppercase
             />
           </div>
+          <Field
+            label="City / Municipality"
+            name="city"
+            placeholder="e.g. Lodi"
+            required
+            uppercase
+          />
+          <StateSelect allowedStates={allowedStates} />
+          <Field
+            label="ZIP Code"
+            name="zip_code"
+            placeholder="e.g. 07644"
+            hint="Optional"
+            uppercase
+          />
+          <Field
+            label="County"
+            name="county"
+            placeholder="e.g. Bergen"
+            hint="County where the work is located"
+            uppercase
+          />
           <SelectField
             label="Authority Type"
             name="authority_type"
@@ -224,23 +373,20 @@ export function SubmitProjectForm({
             required
             hint="The type of government body issuing the permit"
           />
-          <StateSelect />
           <Field
-            label="County"
-            name="county"
-            placeholder="e.g. Bergen"
-            hint="County where the work is located"
+            label="Milepost Start"
+            name="milepost_start"
+            placeholder="e.g. 14.3"
+            hint="Starting milepost of the work area (optional)"
+            uppercase
           />
           <Field
-            label="City / Municipality"
-            name="city"
-            placeholder="e.g. Lodi"
-            required
+            label="Milepost End"
+            name="milepost_end"
+            placeholder="e.g. 16.8"
+            hint="Ending milepost of the work area (optional)"
+            uppercase
           />
-          {/*
-            Township is removed from the client-facing form.
-            Admin can add jurisdiction detail during intake review if needed.
-          */}
         </div>
       </fieldset>
 
@@ -262,7 +408,6 @@ export function SubmitProjectForm({
             />
           </div>
 
-          {/* Attachment note — uploads available on project detail after submission */}
           <div>
             <label className="block text-xs font-medium text-dim mb-1.5">Attachments</label>
             <div
@@ -295,7 +440,7 @@ export function SubmitProjectForm({
         </Link>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || noStatesConfigured}
           className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60"
           style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
         >

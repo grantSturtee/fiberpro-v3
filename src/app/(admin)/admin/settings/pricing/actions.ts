@@ -13,11 +13,10 @@ export type PricingActionState = {
 
 async function requireAdmin() {
   const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return { supabase: null, error: "Not signed in." };
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("id", userData.user.id).single();
-  if (profile?.role !== "admin") return { supabase: null, error: "Admin required." };
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims) return { supabase: null, error: "Not signed in." };
+  const role = (data.claims.app_metadata as { role?: string })?.role;
+  if (role !== "admin") return { supabase: null, error: "Admin required." };
   return { supabase, error: null };
 }
 
@@ -40,6 +39,15 @@ function parseNullableInt(raw: FormDataEntryValue | null): number | null {
   return isNaN(n) ? null : n;
 }
 
+const VALID_WORK_TYPES = ["aerial", "underground"] as const;
+type ValidWorkType = (typeof VALID_WORK_TYPES)[number];
+
+function parseWorkType(raw: FormDataEntryValue | null): ValidWorkType | null {
+  const v = (raw as string | null)?.trim();
+  if (!v) return null;
+  return (VALID_WORK_TYPES as readonly string[]).includes(v) ? (v as ValidWorkType) : null;
+}
+
 function parsePayload(formData: FormData) {
   return {
     name: (formData.get("name") as string)?.trim(),
@@ -47,18 +55,27 @@ function parsePayload(formData: FormData) {
     county: (formData.get("county") as string)?.trim() || null,
     authority_type: (formData.get("authority_type") as string)?.trim() || null,
 
+    company_id: (formData.get("company_id") as string)?.trim() || null,
+    work_type: parseWorkType(formData.get("work_type")),
+
     base_project_fee: parseDec(formData.get("base_project_fee")) ?? 0,
     per_sheet_fee: parseDec(formData.get("per_sheet_fee")) ?? 0,
-    per_mile_fee: parseDec(formData.get("per_mile_fee")),
-    rush_fee: parseDec(formData.get("rush_fee")),
 
     aerial_multiplier: parsePosFloat(formData.get("aerial_multiplier"), 1),
     underground_multiplier: parsePosFloat(formData.get("underground_multiplier"), 1),
     complexity_multiplier: parsePosFloat(formData.get("complexity_multiplier"), 1),
 
     include_application_fee: formData.get("include_application_fee") === "on",
-    include_jurisdiction_fee: formData.get("include_jurisdiction_fee") === "on",
-    fiberpro_admin_fee: parseDec(formData.get("fiberpro_admin_fee")) ?? 0,
+    application_fee_markup: formData.get("application_fee_markup") === "on",
+    application_fee_markup_percent: parseDec(formData.get("application_fee_markup_percent")) ?? 10,
+
+    include_permit_fee: formData.get("include_permit_fee") === "on",
+    permit_fee_markup: formData.get("permit_fee_markup") === "on",
+    permit_fee_markup_percent: parseDec(formData.get("permit_fee_markup_percent")) ?? 10,
+
+    include_review_fee: formData.get("include_review_fee") === "on",
+    review_fee_markup: formData.get("review_fee_markup") === "on",
+    review_fee_markup_percent: parseDec(formData.get("review_fee_markup_percent")) ?? 10,
 
     min_sheets: parseNullableInt(formData.get("min_sheets")),
     max_sheets: parseNullableInt(formData.get("max_sheets")),
@@ -77,7 +94,7 @@ export async function createPricingRule(
   const payload = parsePayload(formData);
   if (!payload.name) return { error: "Rule name is required." };
 
-  const validAuthTypes = ["county", "njdot", "municipal", "other"];
+  const validAuthTypes = ["state", "county", "municipal"];
   if (payload.authority_type && !validAuthTypes.includes(payload.authority_type)) {
     payload.authority_type = null;
   }
@@ -105,7 +122,7 @@ export async function updatePricingRule(
   const payload = parsePayload(formData);
   if (!payload.name) return { error: "Rule name is required." };
 
-  const validAuthTypes = ["county", "njdot", "municipal", "other"];
+  const validAuthTypes = ["state", "county", "municipal"];
   if (payload.authority_type && !validAuthTypes.includes(payload.authority_type)) {
     payload.authority_type = null;
   }
@@ -120,21 +137,40 @@ export async function updatePricingRule(
   redirect("/admin/settings/pricing");
 }
 
-export async function deactivatePricingRule(
-  _prev: PricingActionState,
-  formData: FormData
-): Promise<PricingActionState> {
+/**
+ * Hard-delete a pricing rule.
+ *
+ * projects.pricing_rule_id has ON DELETE SET NULL, so projects that reference
+ * the deleted rule will simply lose the link — they won't be cascade-deleted.
+ * Snapshots on past invoices are stored as JSONB and aren't affected.
+ *
+ * Single-argument signature with `Promise<void>` return so it can be bound
+ * directly to `<form action={deletePricingRule}>` (React 19's form action
+ * prop only accepts void-returning actions). Errors are logged server-side;
+ * the trash-icon button confirms via `window.confirm` before submitting, so
+ * a UI error channel isn't needed for this rarely-invoked path.
+ */
+export async function deletePricingRule(formData: FormData): Promise<void> {
   const { supabase, error: authError } = await requireAdmin();
-  if (authError || !supabase) return { error: authError };
+  if (authError || !supabase) {
+    console.error("deletePricingRule auth error:", authError);
+    return;
+  }
 
-  const id = (formData.get("id") as string)?.trim();
-  if (!id) return { error: "Missing rule ID." };
+  const id = (formData.get("id") as string | null)?.trim();
+  if (!id) {
+    console.error("deletePricingRule: missing rule ID.");
+    return;
+  }
 
   const { error } = await supabase
-    .from("pricing_rules").update({ is_active: false }).eq("id", id);
-
-  if (error) return { error: "Failed to deactivate rule." };
+    .from("pricing_rules")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    console.error("deletePricingRule error:", error);
+    return;
+  }
 
   revalidatePath("/admin/settings/pricing");
-  return { error: null, success: true };
 }

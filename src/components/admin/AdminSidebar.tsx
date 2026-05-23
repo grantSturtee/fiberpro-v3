@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { SignOutButton } from "@/components/ui/SignOutButton";
+import { UserAvatar } from "@/components/shared/UserAvatar";
+import { Logo } from "@/components/ui/Logo";
 
 // ── Icons (inline SVG, 16×16 grid) ──────────────────────────────────────────
 
@@ -65,6 +67,16 @@ function IconBilling() {
   );
 }
 
+function IconActivity() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1.5" y="4" width="13" height="1.5" rx=".75" fill="currentColor" />
+      <rect x="1.5" y="7.25" width="9" height="1.5" rx=".75" fill="currentColor" />
+      <rect x="1.5" y="10.5" width="11" height="1.5" rx=".75" fill="currentColor" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -101,6 +113,7 @@ function IconChevronRight() {
 const navItems = [
   { label: "Dashboard",  href: "/admin",           icon: <IconGrid />,     exact: true },
   { label: "Projects",   href: "/admin/projects",   icon: <IconFolder /> },
+  { label: "Updates",    href: "/admin/updates",    icon: <IconActivity /> },
   { label: "Companies",  href: "/admin/companies",  icon: <IconBuilding /> },
   { label: "Users",      href: "/admin/users",      icon: <IconUsers /> },
   { label: "Billing",    href: "/admin/billing",    icon: <IconBilling /> },
@@ -112,13 +125,14 @@ const navItems = [
 type SidebarUser = {
   displayName: string;
   role: string;
-  initials: string;
+  avatarUrl: string | null;
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function AdminSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
@@ -143,44 +157,54 @@ export function AdminSidebar({ user }: { user: SidebarUser }) {
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
+    // When editing a user that was reached from a company page, keep Companies
+    // active in the sidebar rather than Users.
+    if (pathname.startsWith("/admin/users/")) {
+      const returnTo = searchParams.get("returnTo") ?? "";
+      if (returnTo.startsWith("/admin/companies")) {
+        if (href === "/admin/companies") return true;
+        if (href === "/admin/users") return false;
+      }
+    }
     return pathname.startsWith(href);
   }
 
   return (
     <aside
-      className="flex-shrink-0 flex flex-col h-screen bg-canvas transition-[width] duration-200 ease-in-out overflow-hidden"
-      style={{ width: collapsed ? 52 : 220 }}
+      className="flex-shrink-0 flex flex-col h-screen bg-canvas transition-[width] duration-200 ease-in-out overflow-hidden overscroll-y-contain"
+      style={{ width: collapsed ? 64 : 220 }}
     >
       {/* Brand + toggle */}
-      <div className="h-14 flex items-center flex-shrink-0 px-3 gap-2">
-        {collapsed ? (
-          // Collapsed: just the "F" mark, centered
-          <div className="flex-1 flex justify-center">
-            <span className="text-sm font-bold text-primary">F</span>
+      {collapsed ? (
+        <div className="h-14 flex-shrink-0 flex items-center justify-center gap-1">
+          <Logo variant="icon" />
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Expand sidebar"
+            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-ink hover:bg-wash transition-colors flex-shrink-0"
+          >
+            <IconChevronRight />
+          </button>
+        </div>
+      ) : (
+        <div className="h-14 flex items-center flex-shrink-0 px-3 gap-2">
+          <div className="flex-1 flex items-center overflow-hidden">
+            <Logo variant="banner" />
           </div>
-        ) : (
-          // Expanded: full brand mark
-          <div className="flex-1 flex items-center gap-2 overflow-hidden">
-            <span className="text-sm font-bold text-ink tracking-tight whitespace-nowrap">
-              Fiber<span className="text-primary">Pro</span>
-            </span>
-            <span className="text-[10px] font-semibold text-muted bg-wash rounded px-1.5 py-0.5 tracking-wide whitespace-nowrap">
-              V3
-            </span>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-ink hover:bg-wash transition-colors flex-shrink-0"
-        >
-          {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Collapse sidebar"
+            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-ink hover:bg-wash transition-colors flex-shrink-0"
+          >
+            <IconChevronLeft />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-hidden px-1.5 py-2 space-y-0.5">
         {navItems.map((item) => {
           const active = isActive(item.href, item.exact);
           return (
@@ -213,24 +237,24 @@ export function AdminSidebar({ user }: { user: SidebarUser }) {
         {collapsed ? (
           // Collapsed: avatar centered, sign out below
           <div className="flex flex-col items-center gap-1.5">
-            <div
-              className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center"
-              title={user.displayName}
-            >
-              <span className="text-[10px] font-semibold text-primary">{user.initials}</span>
-            </div>
+            <Link href="/admin/profile" title={user.displayName} className="hover:opacity-80 transition-opacity">
+              <UserAvatar displayName={user.displayName} avatarUrl={user.avatarUrl} />
+            </Link>
             <SignOutButton />
           </div>
         ) : (
           // Expanded: full user row
           <div className="rounded-lg bg-wash px-3 py-2.5 flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0">
-              <span className="text-[10px] font-semibold text-primary">{user.initials}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-ink truncate">{user.displayName}</p>
-              <p className="text-[10px] text-muted capitalize">{user.role}</p>
-            </div>
+            <Link
+              href="/admin/profile"
+              className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+            >
+              <UserAvatar displayName={user.displayName} avatarUrl={user.avatarUrl} />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-ink truncate">{user.displayName}</p>
+                <p className="text-[10px] text-muted capitalize">{user.role}</p>
+              </div>
+            </Link>
             <SignOutButton />
           </div>
         )}

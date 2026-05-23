@@ -1,0 +1,1 @@
+DRY_RUN=true npx tsx scripts/reset-test-data.ts

@@ -1,5 +1,5 @@
 -- =============================================================================
--- FiberPro V3 — Initial Schema
+-- GRANTED — Initial Schema
 -- =============================================================================
 -- Run this via: supabase db push  OR  paste into Supabase SQL editor
 --
@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS projects (
   job_number_client         text,             -- client's internal reference
   rhino_pm                  text,             -- Rhino project manager name
   comcast_manager           text,             -- client-side manager name
-  submitted_to_fiberpro     date,             -- date client submitted to FiberPro
+  submitted_to_fiberpro     date,             -- date client submitted to GRANTED
   requested_approval_date   date,
   job_address               text,
   authority_type            authority_type,
@@ -633,7 +633,7 @@ CREATE POLICY "project_messages: company insert"
       WHERE p.id = project_messages.project_id
         AND cm.user_id = auth.uid()
     )
-    -- Company messages are always sent to FiberPro; company cannot set visible_to_company
+    -- Company messages are always sent to GRANTED; company cannot set visible_to_company
     AND visible_to_company = false
   );
 

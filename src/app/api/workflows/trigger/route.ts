@@ -73,11 +73,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. POST to n8n webhook ───────────────────────────────────────────────────
-  // "type" is used in the n8n payload (not "job_type") for cleaner n8n node access.
+  // "job_type" matches the field the n8n workflow filter checks ($json.job_type).
+  // Must stay consistent with the direct-enqueue webhook payload in
+  // enqueuePackageGeneration (admin/projects/[id]/actions.ts).
   const n8nPayload = {
     job_id: job.id,
     project_id: job.project_id,
-    type: job.job_type,
+    job_type: job.job_type,
     metadata: job.metadata ?? {},
   };
 

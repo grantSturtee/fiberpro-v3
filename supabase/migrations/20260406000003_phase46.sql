@@ -1,5 +1,5 @@
 -- =============================================================================
--- FiberPro V3 — Phase 4.6 Schema Updates
+-- GRANTED — Phase 4.6 Schema Updates
 -- =============================================================================
 -- · TCD library: add state + title columns
 -- · Cover sheet templates: add state, work_type, notes, is_default columns
@@ -85,7 +85,7 @@ CREATE POLICY "jurisdiction_requirements: internal read"
 DROP TRIGGER IF EXISTS touch_updated_at ON jurisdiction_requirements;
 CREATE TRIGGER touch_updated_at
   BEFORE UPDATE ON jurisdiction_requirements
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 -- ── Storage: tcd-pdfs bucket ──────────────────────────────────────────────────
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

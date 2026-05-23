@@ -2,54 +2,78 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { SettingsBackButton } from "@/components/ui/SettingsBackButton";
 import { TcdAddForm } from "@/components/admin/settings/TcdAddForm";
-import { TcdDeactivateButton } from "@/components/admin/settings/TcdDeactivateButton";
+import { TcdDeleteButton } from "@/components/admin/settings/TcdDeleteButton";
+import { TcdStateFilter } from "@/components/admin/settings/TcdStateFilter";
 
 export const metadata: Metadata = { title: "TCD Library" };
 
-const TCD_CATEGORIES = ["shoulder", "lane", "highway", "ramp", "intersection", "other"] as const;
+const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "Washington DC",
+  FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois",
+  IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana",
+  ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota",
+  MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada",
+  NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York",
+  NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon",
+  PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota",
+  TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia",
+  WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
+// "TCD-2" < "TCD-10", not "TCD-10" < "TCD-2"
+function naturalCode(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
 
 type PageProps = {
-  searchParams: Promise<{ state?: string; category?: string }>;
+  searchParams: Promise<{ state?: string }>;
 };
 
 export default async function AdminTcdLibraryPage({ searchParams }: PageProps) {
-  const { state: filterState, category: filterCategory } = await searchParams;
+  const params = await searchParams;
+  const filterState = params?.state;
   const supabase = await createClient();
 
   let query = supabase
     .from("tcd_library")
-    .select("id, code, description, category, state, storage_path, is_active")
+    .select("id, code, description, state, storage_path, is_active")
     .order("code");
 
   if (filterState) query = query.eq("state", filterState);
-  if (filterCategory) query = query.eq("category", filterCategory);
 
   const { data } = await query;
   const items = data ?? [];
   const active = items.filter((i) => i.is_active);
   const inactive = items.filter((i) => !i.is_active);
 
-  // Group active items by category for display
-  const byCategory: Record<string, typeof active> = {};
+  // Group by state; null state → "__all__" sentinel displayed as "All States"
+  const byState: Record<string, typeof active> = {};
   for (const item of active) {
-    const cat = item.category ?? "Uncategorized";
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(item);
+    const key = item.state ?? "__all__";
+    if (!byState[key]) byState[key] = [];
+    byState[key].push(item);
   }
-  const categories = Object.keys(byCategory).sort();
 
-  const hasFilter = !!filterState || !!filterCategory;
+  // State groups sorted alphabetically by full name; "All States" always last
+  const stateKeys = Object.keys(byState).sort((a, b) => {
+    if (a === "__all__") return 1;
+    if (b === "__all__") return -1;
+    return (STATE_NAMES[a] ?? a).localeCompare(STATE_NAMES[b] ?? b);
+  });
+
+  for (const key of stateKeys) {
+    byState[key].sort((a, b) => naturalCode(a.code, b.code));
+  }
+
+  const hasFilter = !!filterState;
 
   return (
     <div className="p-8 space-y-6 max-w-4xl mx-auto">
-      {/* Breadcrumb */}
       <div>
-        <div className="flex items-center gap-2 text-xs text-muted mb-2">
-          <Link href="/admin/settings" className="hover:text-primary transition-colors">Settings</Link>
-          <span>/</span>
-          <span className="text-ink">TCD Library</span>
-        </div>
+        <SettingsBackButton href="/admin/settings" label="Settings" />
         <h1 className="text-xl font-semibold text-ink">TCD Sheet Library</h1>
         <p className="mt-0.5 text-sm text-muted">
           {active.length} active sheet{active.length !== 1 ? "s" : ""}
@@ -57,85 +81,47 @@ export default async function AdminTcdLibraryPage({ searchParams }: PageProps) {
         </p>
       </div>
 
-      {/* Filters */}
-      <form method="GET" className="flex items-center gap-3 flex-wrap">
-        <select
-          name="state"
-          defaultValue={filterState ?? ""}
-          className="bg-surface rounded-lg px-3 py-2 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
-          style={{ border: "1px solid #d4dde4" }}
-        >
-          <option value="">All States</option>
-          {/* Common states for NJ-focused operation + catch-all */}
-          {["NJ", "NY", "PA", "CT", "DE", "MD", "MA"].map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select
-          name="category"
-          defaultValue={filterCategory ?? ""}
-          className="bg-surface rounded-lg px-3 py-2 text-sm text-ink outline-none transition-shadow focus:ring-2 focus:ring-primary/20 cursor-pointer"
-          style={{ border: "1px solid #d4dde4" }}
-        >
-          <option value="">All Categories</option>
-          {TCD_CATEGORIES.map((c) => (
-            <option key={c} value={c} className="capitalize">{c}</option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="px-3 py-2 rounded-lg text-sm font-medium bg-surface text-dim hover:text-ink transition-colors"
-          style={{ border: "1px solid #d4dde4" }}
-        >
-          Filter
-        </button>
-        {hasFilter && (
-          <Link
-            href="/admin/settings/tcd"
-            className="text-xs text-muted hover:text-dim transition-colors"
-          >
-            Clear
-          </Link>
-        )}
-      </form>
+      {/* State filter — auto-applies on selection */}
+      <TcdStateFilter current={filterState ?? ""} />
 
-      {/* Active items */}
+      {/* Active items grouped by state */}
       {active.length > 0 && (
         <SectionCard noPad>
-          {categories.map((cat, catIdx) => (
-            <div key={cat}>
-              <div className={`px-5 py-2 bg-canvas ${catIdx > 0 ? "mt-1" : ""}`}>
-                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider capitalize">
-                  {cat}
+          {stateKeys.map((key, groupIdx) => (
+            <div key={key}>
+              <div className={`px-5 py-2.5 bg-canvas ${groupIdx > 0 ? "border-t border-surface" : ""}`}>
+                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+                  {key === "__all__" ? "All States" : (STATE_NAMES[key] ?? key)}
                 </p>
               </div>
               <div className="divide-y divide-surface">
-                {byCategory[cat].map((item) => (
+                {byState[key].map((item) => (
                   <div key={item.id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink font-mono">{item.code}</span>
-                        {item.state && (
-                          <span className="text-[10px] font-medium text-muted bg-surface rounded px-1.5 py-0.5 border border-rule">
-                            {item.state}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-sm font-semibold text-ink font-mono">{item.code}</span>
                       <p className="text-xs text-muted mt-0.5 leading-relaxed">{item.description}</p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
                       {item.storage_path ? (
-                        <span className="text-xs text-green-600 font-medium">PDF ✓</span>
+                        <span
+                          className="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"
+                          title="PDF on file"
+                          aria-label="PDF on file"
+                        />
                       ) : (
-                        <span className="text-xs text-faint">No PDF</span>
+                        <span className="text-[11px] text-faint mr-2 select-none">No PDF</span>
                       )}
                       <Link
                         href={`/admin/settings/tcd/${item.id}/edit`}
-                        className="text-xs text-primary hover:underline"
+                        className="p-1.5 rounded text-muted hover:text-ink hover:bg-surface transition-colors"
+                        title={`Edit ${item.code}`}
+                        aria-label={`Edit ${item.code}`}
                       >
-                        Edit
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                          <path d="M11.5 2.5a1.5 1.5 0 012.12 2.12L5 13.25l-3 .75.75-3L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       </Link>
-                      <TcdDeactivateButton itemId={item.id} code={item.code} />
+                      <TcdDeleteButton itemId={item.id} code={item.code} />
                     </div>
                   </div>
                 ))}
@@ -155,7 +141,7 @@ export default async function AdminTcdLibraryPage({ searchParams }: PageProps) {
           </p>
           {hasFilter && (
             <Link href="/admin/settings/tcd" className="mt-2 inline-block text-xs text-primary hover:underline">
-              Clear filters
+              Clear filter
             </Link>
           )}
         </div>

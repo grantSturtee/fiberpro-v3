@@ -88,6 +88,7 @@ export async function uploadIntakeFile(
     storage_path: storagePath,
     file_size_bytes: file.size,
     mime_type: file.type,
+    source: "admin_upload",
   });
 
   if (dbError) {
@@ -103,6 +104,74 @@ export async function uploadIntakeFile(
     action: `Attachment uploaded: ${file.name}`,
     metadata: { file_name: file.name, storage_path: storagePath },
   });
+
+  revalidatePath(`/company/projects/${projectId}`);
+  return { error: null, success: true };
+}
+
+// ── Delete Intake Attachment ──────────────────────────────────────────────────
+// Company user removes one of their own uploaded intake attachments.
+// Verifies ownership via company membership → project.company_id chain.
+// Removes from both storage and project_files.
+
+export async function deleteIntakeFile(
+  _prevState: CompanyFileActionState,
+  formData: FormData
+): Promise<CompanyFileActionState> {
+  const supabase = await createClient();
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Not authenticated." };
+
+  const fileId = formData.get("file_id") as string;
+  const projectId = formData.get("project_id") as string;
+  if (!fileId || !projectId) return { error: "Missing file or project ID." };
+
+  const userId = userData.user.id;
+
+  // Verify user belongs to the project's company
+  const { data: membership } = await supabase
+    .from("company_memberships")
+    .select("company_id")
+    .eq("user_id", userId)
+    .single();
+
+  if (!membership) return { error: "Your account is not linked to a company." };
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, company_id")
+    .eq("id", projectId)
+    .eq("company_id", membership.company_id)
+    .single();
+
+  if (!project) return { error: "Project not found or access denied." };
+
+  // Fetch the file record — must be intake_attachment on this project
+  const serviceClient = createServiceClient();
+  const { data: fileRecord } = await serviceClient
+    .from("project_files")
+    .select("id, storage_path, file_category")
+    .eq("id", fileId)
+    .eq("project_id", projectId)
+    .eq("file_category", "intake_attachment")
+    .single();
+
+  if (!fileRecord) return { error: "File not found." };
+
+  // Remove from storage
+  await serviceClient.storage.from("project-files").remove([fileRecord.storage_path]);
+
+  // Remove DB record
+  const { error: dbError } = await serviceClient
+    .from("project_files")
+    .delete()
+    .eq("id", fileId);
+
+  if (dbError) {
+    console.error("Delete intake file DB error:", dbError);
+    return { error: "Failed to delete file record." };
+  }
 
   revalidatePath(`/company/projects/${projectId}`);
   return { error: null, success: true };

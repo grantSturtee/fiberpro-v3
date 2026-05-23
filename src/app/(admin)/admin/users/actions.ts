@@ -20,19 +20,13 @@ export async function createInternalUser(
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { error: "You must be signed in." };
 
-  const { data: callerProfile } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("id", userData.user.id)
-    .single();
-
-  if (callerProfile?.role !== "admin") return { error: "Admin access required." };
+  const callerRole = (userData.user.app_metadata as { role?: string })?.role;
+  if (callerRole !== "admin") return { error: "Admin access required." };
 
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const displayName = (formData.get("display_name") as string)?.trim();
   const role = (formData.get("role") as string)?.trim();
   const password = (formData.get("password") as string) ?? "";
-  const confirmPassword = (formData.get("confirm_password") as string) ?? "";
 
   if (!email) return { error: "Email is required." };
   if (!displayName) return { error: "Display name is required." };
@@ -41,7 +35,6 @@ export async function createInternalUser(
   }
   if (!password) return { error: "Password is required." };
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
-  if (password !== confirmPassword) return { error: "Passwords do not match." };
 
   const serviceClient = createServiceClient();
 
@@ -89,8 +82,7 @@ export async function createInternalUser(
 
 // ── Update any user profile ───────────────────────────────────────────────────
 // Handles both internal (admin/designer) and company (company_admin/project_manager) users.
-// Email changes are intentionally excluded — Supabase email updates require
-// the user to confirm via a verification link, which is not practical here.
+// Email is updated via the admin SDK which bypasses Supabase's confirmation flow.
 
 export type UpdateUserState = {
   error: string | null;
@@ -106,38 +98,51 @@ export async function updateUserProfile(
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { error: "You must be signed in." };
 
-  const { data: callerProfile } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("id", userData.user.id)
-    .single();
-
-  if (callerProfile?.role !== "admin") return { error: "Admin access required." };
+  const callerRole = (userData.user.app_metadata as { role?: string })?.role;
+  if (callerRole !== "admin") return { error: "Admin access required." };
 
   const targetId = (formData.get("user_id") as string)?.trim();
   const displayName = (formData.get("display_name") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
   const role = (formData.get("role") as string)?.trim();
-  const newPassword = (formData.get("new_password") as string) ?? "";
-  const confirmPassword = (formData.get("confirm_new_password") as string) ?? "";
-  const returnTo = (formData.get("return_to") as string)?.trim() || "/admin/users";
+  const newPassword = ((formData.get("new_password") as string) ?? "").trim();
+  const confirmPassword = ((formData.get("confirm_new_password") as string) ?? "").trim();
+  const rawReturnTo = (formData.get("return_to") as string)?.trim() ?? "";
+  const returnTo = rawReturnTo.startsWith("/admin/") ? rawReturnTo : "/admin/users";
 
   if (!targetId) return { error: "User ID missing." };
   if (!displayName) return { error: "Display name is required." };
+  if (!email) return { error: "Email is required." };
 
   const validRoles = ["admin", "designer", "company_admin", "project_manager"];
   if (!validRoles.includes(role)) return { error: "Invalid role." };
 
-  if (newPassword) {
+  const hasPassword = newPassword.length > 0;
+  const hasConfirm = confirmPassword.length > 0;
+  if (hasPassword || hasConfirm) {
+    if (!hasPassword || !hasConfirm) return { error: "Please fill in both password fields." };
     if (newPassword.length < 8) return { error: "Password must be at least 8 characters." };
     if (newPassword !== confirmPassword) return { error: "Passwords do not match." };
   }
 
   const serviceClient = createServiceClient();
 
+  // Detect email change
+  const { data: currentProfile } = await serviceClient
+    .from("user_profiles")
+    .select("email")
+    .eq("id", targetId)
+    .single();
+
+  const emailChanged = email !== ((currentProfile?.email as string | null) ?? "").toLowerCase();
+
   // Update user_profiles
+  const profileUpdate: Record<string, unknown> = { display_name: displayName, role };
+  if (emailChanged) profileUpdate.email = email;
+
   const { error: profileError } = await serviceClient
     .from("user_profiles")
-    .update({ display_name: displayName, role })
+    .update(profileUpdate)
     .eq("id", targetId);
 
   if (profileError) {
@@ -145,17 +150,21 @@ export async function updateUserProfile(
     return { error: "Failed to update profile." };
   }
 
-  // Update auth app_metadata (role for middleware/RLS checks)
-  const authUpdate: { app_metadata?: { role: string }; password?: string } = {
+  // Update auth: role metadata, email (if changed), password (if provided)
+  const authUpdate: { app_metadata?: { role: string }; email?: string; password?: string } = {
     app_metadata: { role },
   };
-  if (newPassword) authUpdate.password = newPassword;
+  if (emailChanged) authUpdate.email = email;
+  if (hasPassword) authUpdate.password = newPassword;
 
   const { error: authError } = await serviceClient.auth.admin.updateUserById(targetId, authUpdate);
 
   if (authError) {
     console.error("Auth update error:", authError);
-    return { error: "Profile saved but auth update failed. Contact support." };
+    const msg = authError.message?.toLowerCase().includes("already")
+      ? "That email is already in use by another account."
+      : "Profile saved but auth update failed. Contact support.";
+    return { error: msg };
   }
 
   revalidatePath("/admin/users");

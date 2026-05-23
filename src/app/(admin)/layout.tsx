@@ -12,29 +12,49 @@ export default async function AdminLayout({
 }) {
   const supabase = await createClient();
 
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/sign-in");
+  // getClaims() reads JWT claims locally — no network round-trip, no token refresh.
+  // getUser() triggers a Supabase Auth network call on every layout render, which causes
+  // concurrent 409 token refresh conflicts under rapid navigation (@supabase/ssr 0.10+).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims) redirect("/sign-in");
 
+  const userId = claims.sub;
+
+  // Core profile — display name and role only. Must never be broken by schema additions.
   const { data: profile } = await supabase
     .from("user_profiles")
     .select("display_name, role")
-    .eq("id", userData.user.id)
+    .eq("id", userId)
     .single();
 
-  const displayName = profile?.display_name || userData.user.email || "Admin";
+  // Avatar URL — separate query so a missing column cannot affect display name resolution.
+  const { data: avatarData } = await supabase
+    .from("user_profiles")
+    .select("avatar_url")
+    .eq("id", userId)
+    .single();
+
+  const metaDisplayName = (claims.user_metadata?.display_name as string | undefined)?.trim();
+  const displayName =
+    profile?.display_name?.trim() ||
+    metaDisplayName ||
+    claims.email ||
+    "Admin";
   const role = profile?.role || "admin";
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .map((n: string) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  // Convert stored path to a signed URL. Falls back to null (initials) if absent or signing fails.
+  let avatarUrl: string | null = null;
+  if (avatarData?.avatar_url) {
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrl(avatarData.avatar_url, 3600);
+    avatarUrl = signed?.signedUrl ?? null;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <AdminSidebar user={{ displayName, role, initials }} />
-      <main className="flex-1 overflow-y-auto min-w-0">
+      <AdminSidebar user={{ displayName, role, avatarUrl }} />
+      <main className="flex-1 overflow-y-auto overscroll-y-none min-w-0">
         {children}
       </main>
     </div>

@@ -100,7 +100,7 @@ export function JurisdictionForm({
               defaultValue={item?.state ?? "NJ"}
               maxLength={2}
               placeholder="NJ"
-              className={inputCls}
+              className={`${inputCls} uppercase-input`}
               style={borderStyle}
             />
           </div>
@@ -111,7 +111,7 @@ export function JurisdictionForm({
               type="text"
               defaultValue={item?.county ?? ""}
               placeholder="e.g. Bergen"
-              className={inputCls}
+              className={`${inputCls} uppercase-input`}
               style={borderStyle}
             />
           </div>
@@ -122,7 +122,7 @@ export function JurisdictionForm({
               type="text"
               defaultValue={item?.township ?? ""}
               placeholder="e.g. Hackensack"
-              className={inputCls}
+              className={`${inputCls} uppercase-input`}
               style={borderStyle}
             />
           </div>
@@ -143,7 +143,7 @@ export function JurisdictionForm({
               required
               defaultValue={item?.authority_name ?? ""}
               placeholder="e.g. NJDOT, Bergen County Engineering"
-              className={inputCls}
+              className={`${inputCls} uppercase-input`}
               style={borderStyle}
             />
           </div>

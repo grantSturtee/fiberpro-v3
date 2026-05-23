@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { getUpdateCadenceDays } from "@/lib/queries/appSettings";
+import { CadenceForm } from "./CadenceForm";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -17,25 +19,30 @@ type NavCard = {
 export default async function AdminSettingsPage() {
   const supabase = await createClient();
 
-  const [tcdRes, coversRes, pricingRes, jurisdictionsRes] = await Promise.all([
+  // Jurisdiction Requirements tile is intentionally hidden — Authority Profiles
+  // is the rulebook now. The /admin/settings/jurisdictions route still exists
+  // and is reachable via direct URL for any project-intelligence consumers.
+  const [tcdRes, pricingRes, authoritiesRes, blueprintsRes, pageTemplatesRes, cadenceDays] = await Promise.all([
     supabase.from("tcd_library").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("cover_sheet_templates").select("id", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("pricing_rules").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("jurisdiction_requirements").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("authority_profiles").select("id", { count: "exact", head: true }),
+    supabase.from("package_blueprints").select("id", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("page_templates").select("id", { count: "exact", head: true }).eq("is_active", true),
+    getUpdateCadenceDays(supabase),
   ]);
 
   const nav: NavCard[] = [
+    {
+      href: "/admin/settings/authorities",
+      title: "Permitting Authorities",
+      description: "Authority-specific requirements, contacts, submission methods, and ops notes.",
+      stat: authoritiesRes.count !== null ? `${authoritiesRes.count} configured` : null,
+    },
     {
       href: "/admin/settings/tcd",
       title: "TCD Sheet Library",
       description: "Reusable Traffic Control Device sheets included in permit packages.",
       stat: tcdRes.count !== null ? `${tcdRes.count} active` : null,
-    },
-    {
-      href: "/admin/settings/covers",
-      title: "Cover Sheet Templates",
-      description: "Templates for permit package cover sheets, scoped by county and authority.",
-      stat: coversRes.count !== null ? `${coversRes.count} active` : null,
     },
     {
       href: "/admin/settings/pricing",
@@ -44,10 +51,16 @@ export default async function AdminSettingsPage() {
       stat: pricingRes.count !== null ? `${pricingRes.count} active` : null,
     },
     {
-      href: "/admin/settings/jurisdictions",
-      title: "Jurisdiction Requirements",
-      description: "Per-county submission workflows: forms required, fees, and submission channels.",
-      stat: jurisdictionsRes.count !== null ? `${jurisdictionsRes.count} active` : null,
+      href: "/admin/settings/page-templates",
+      title: "Page Templates",
+      description: "Reusable wrapper templates for cover, TCP, TCD, SLD, and COI slots in permit packages.",
+      stat: pageTemplatesRes.count !== null ? `${pageTemplatesRes.count} active` : null,
+    },
+    {
+      href: "/admin/settings/package-templates",
+      title: "Package Templates",
+      description: "Configure permit package slots (cover, TCP, SLD, TCD, application form, certification form) per authority.",
+      stat: blueprintsRes.count !== null ? `${blueprintsRes.count} active` : null,
     },
   ];
 
@@ -82,6 +95,28 @@ export default async function AdminSettingsPage() {
           </Link>
         ))}
       </div>
+
+      {/* Project Updates */}
+      <SectionCard
+        id="project-updates"
+        title="Project Updates"
+        description="Internal update cadence and accountability settings."
+      >
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Update cadence</p>
+              <p className="mt-0.5 text-xs text-muted">
+                How often designers and admins are expected to post a project status update.
+                Projects with no update within this window are flagged as needing attention.
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <CadenceForm currentDays={cadenceDays} />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
 
       {/* Workflow Jobs — future */}
       <SectionCard

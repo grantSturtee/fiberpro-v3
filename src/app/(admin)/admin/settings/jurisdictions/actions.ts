@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeUpperFormField } from "@/lib/utils/textNormalization";
 
 export type JurisdictionActionState = {
   error: string | null;
@@ -13,11 +14,10 @@ const VALID_METHODS = ["online", "email", "mail", "portal"] as const;
 
 async function requireAdmin() {
   const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return { supabase: null, error: "Not signed in." };
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("id", userData.user.id).single();
-  if (profile?.role !== "admin") return { supabase: null, error: "Admin required." };
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims) return { supabase: null, error: "Not signed in." };
+  const role = (data.claims.app_metadata as { role?: string })?.role;
+  if (role !== "admin") return { supabase: null, error: "Admin required." };
   return { supabase, error: null };
 }
 
@@ -45,16 +45,18 @@ export async function createJurisdiction(
   const { supabase, error: authError } = await requireAdmin();
   if (authError || !supabase) return { error: authError };
 
-  const state = (formData.get("state") as string)?.trim();
-  const authority_name = (formData.get("authority_name") as string)?.trim();
+  // Permit-facing location/name fields are normalized to uppercase. URLs,
+  // emails, IDs, enums (submission_method), and `notes` prose stay as typed.
+  const state = normalizeUpperFormField(formData, "state");
+  const authority_name = normalizeUpperFormField(formData, "authority_name");
 
   if (!state) return { error: "State is required." };
   if (!authority_name) return { error: "Authority name is required." };
 
   const payload = {
     state,
-    county: (formData.get("county") as string)?.trim() || null,
-    township: (formData.get("township") as string)?.trim() || null,
+    county: normalizeUpperFormField(formData, "county"),
+    township: normalizeUpperFormField(formData, "township"),
     authority_name,
     submission_method: parseMethod((formData.get("submission_method") as string)?.trim()),
     submission_url: (formData.get("submission_url") as string)?.trim() || null,
@@ -95,8 +97,9 @@ export async function updateJurisdiction(
   if (authError || !supabase) return { error: authError };
 
   const id = (formData.get("id") as string)?.trim();
-  const state = (formData.get("state") as string)?.trim();
-  const authority_name = (formData.get("authority_name") as string)?.trim();
+  // See createJurisdiction for normalization rationale.
+  const state = normalizeUpperFormField(formData, "state");
+  const authority_name = normalizeUpperFormField(formData, "authority_name");
 
   if (!id) return { error: "Missing ID." };
   if (!state) return { error: "State is required." };
@@ -104,8 +107,8 @@ export async function updateJurisdiction(
 
   const payload = {
     state,
-    county: (formData.get("county") as string)?.trim() || null,
-    township: (formData.get("township") as string)?.trim() || null,
+    county: normalizeUpperFormField(formData, "county"),
+    township: normalizeUpperFormField(formData, "township"),
     authority_name,
     submission_method: parseMethod((formData.get("submission_method") as string)?.trim()),
     submission_url: (formData.get("submission_url") as string)?.trim() || null,

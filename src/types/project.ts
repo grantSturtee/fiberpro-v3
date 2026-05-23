@@ -8,10 +8,14 @@ export interface ProjectIntakeFields {
   rhinoPM?: string;
   clientManager?: string;       // e.g. Comcast manager name
   jobNumberClient?: string;     // Client's own reference number (JB-XXXX)
-  submittedToFiberProAt: string; // ISO date
+  submittedToGRANTEDAt: string; // ISO date
   requestedApprovalDate: string; // ISO date
   jobName: string;
   jobAddress: string;
+  // Phase A — structured address fields. Optional during the transition;
+  // intake forms populate these and derive jobName/jobAddress server-side.
+  streetAddress?: string;
+  zipCode?: string;
   authorityType: AuthorityType;
   county: string;               // NJ county name
   city: string;

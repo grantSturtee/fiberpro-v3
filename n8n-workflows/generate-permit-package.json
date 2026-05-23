@@ -1,0 +1,242 @@
+{
+  "name": "Generate Permit Package",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-permit-package",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "generate-permit-package"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-job-type",
+              "leftValue": "={{ $json.job_type }}",
+              "rightValue": "generate_permit_package",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-filter-job-type",
+      "name": "Is generate_permit_package?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {},
+      "id": "node-noop",
+      "name": "NoOp",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [680, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/generate-package",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-workflow-secret",
+              "value": "={{ $env.WORKFLOW_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $json.job_id }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-call-generate",
+      "name": "Call generate-package",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-check-ok",
+      "name": "Generation succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/workflows/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-workflow-secret",
+              "value": "={{ $env.WORKFLOW_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Webhook').item.json.job_id }}\",\n  \"status\": \"completed\",\n  \"result\": {\n    \"file_path\": \"{{ $json.file_path }}\",\n    \"file_name\": \"{{ $json.file_name }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "node-complete-success",
+      "name": "Mark completed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/workflows/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-workflow-secret",
+              "value": "={{ $env.WORKFLOW_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Webhook').item.json.job_id }}\",\n  \"status\": \"failed\",\n  \"error\": \"Package generation failed\"\n}",
+        "options": {}
+      },
+      "id": "node-complete-failure",
+      "name": "Mark failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is generate_permit_package?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is generate_permit_package?": {
+      "main": [
+        [
+          {
+            "node": "Call generate-package",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NoOp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call generate-package": {
+      "main": [
+        [
+          {
+            "node": "Generation succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generation succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Mark completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-04-08T00:00:00.000Z",
+  "versionId": "1"
+}

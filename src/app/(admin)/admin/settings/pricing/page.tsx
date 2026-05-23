@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { PricingDeactivateButton } from "@/components/admin/settings/PricingDeactivateButton";
+import { SettingsBackButton } from "@/components/ui/SettingsBackButton";
+import { PricingDeleteButton } from "@/components/admin/settings/PricingDeleteButton";
+import { GlobalSettingsCard } from "@/components/admin/settings/GlobalSettingsCard";
 import type { PricingRule } from "@/lib/queries/pricing";
 
 export const metadata: Metadata = { title: "Pricing Rules" };
@@ -14,13 +16,24 @@ const AUTHORITY_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+const WORK_TYPE_LABELS: Record<string, string> = {
+  aerial: "Aerial",
+  underground: "Underground",
+};
+
 function fmt(n: number | null) {
   if (n === null) return null;
   return `$${Number(n).toFixed(2)}`;
 }
 
-function scopeLabel(rule: PricingRule): string {
-  const parts = [rule.county ? `${rule.county} Co.` : null, rule.state].filter(Boolean);
+function scopeLabel(rule: PricingRule, companiesById: Map<string, string>): string {
+  const parts: string[] = [];
+  if (rule.company_id) {
+    const name = companiesById.get(rule.company_id);
+    if (name) parts.push(name);
+  }
+  if (rule.county) parts.push(`${rule.county} Co.`);
+  if (rule.state) parts.push(rule.state);
   return parts.join(", ") || "Global";
 }
 
@@ -32,29 +45,43 @@ export default async function AdminPricingPage({ searchParams }: PageProps) {
   const { state: filterState, county: filterCounty } = await searchParams;
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("pricing_rules")
-    .select("*")
-    .order("name");
+  const [{ data: ruleData }, { data: companyData }, { data: settingData }] = await Promise.all([
+    supabase.from("pricing_rules").select("*").order("name"),
+    supabase
+      .from("companies")
+      .select("id, name")
+      .is("archived_at", null)
+      .order("name"),
+    supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["default_admin_fee", "rush_fee_type", "rush_fee_value"]),
+  ]);
 
-  let items = (data ?? []) as PricingRule[];
+  const companiesById = new Map<string, string>(
+    ((companyData ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name])
+  );
+
+  const settings = new Map<string, string>(
+    ((settingData ?? []) as Array<{ key: string; value: string }>).map((r) => [r.key, r.value])
+  );
+  const defaultAdminFee = settings.get("default_admin_fee") ?? "100.00";
+  const rushFeeType = settings.get("rush_fee_type") ?? "percent";
+  const rushFeeValue = settings.get("rush_fee_value") ?? "10.00";
+
+  let items = (ruleData ?? []) as PricingRule[];
 
   if (filterState) items = items.filter((r) => r.state === filterState.toUpperCase());
   if (filterCounty) items = items.filter((r) => r.county?.toLowerCase().includes(filterCounty.toLowerCase()));
 
   const active = items.filter((r) => r.is_active);
-  const inactive = items.filter((r) => !r.is_active);
   const hasFilter = !!filterState || !!filterCounty;
 
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs text-muted mb-2">
-            <Link href="/admin/settings" className="hover:text-primary transition-colors">Settings</Link>
-            <span>/</span>
-            <span className="text-ink">Pricing Rules</span>
-          </div>
+          <SettingsBackButton href="/admin/settings" label="Settings" />
           <h1 className="text-xl font-semibold text-ink">Pricing Rules</h1>
           <p className="mt-0.5 text-sm text-muted">
             {active.length} active{hasFilter ? " (filtered)" : ""}
@@ -68,6 +95,13 @@ export default async function AdminPricingPage({ searchParams }: PageProps) {
           + Add Rule
         </Link>
       </div>
+
+      {/* Global settings — fallback values used when a specific rule doesn't override */}
+      <GlobalSettingsCard
+        defaultAdminFee={defaultAdminFee}
+        rushFeeType={rushFeeType}
+        rushFeeValue={rushFeeValue}
+      />
 
       {/* Filters */}
       <form method="GET" className="flex items-center gap-3 flex-wrap">
@@ -117,17 +151,31 @@ export default async function AdminPricingPage({ searchParams }: PageProps) {
                           {AUTHORITY_LABELS[rule.authority_type] ?? rule.authority_type}
                         </span>
                       )}
+                      {rule.work_type && (
+                        <span className="text-[10px] font-semibold bg-surface text-dim rounded px-1.5 py-0.5 border border-rule">
+                          {WORK_TYPE_LABELS[rule.work_type] ?? rule.work_type}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted mt-0.5">{scopeLabel(rule)}</p>
+                    <p className="text-xs text-muted mt-0.5">{scopeLabel(rule, companiesById)}</p>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <Link
                       href={`/admin/settings/pricing/${rule.id}/edit`}
-                      className="text-xs text-primary hover:underline"
+                      title="Edit rule"
+                      aria-label={`Edit rule "${rule.name}"`}
+                      className="text-muted hover:text-ink transition-colors p-1"
                     >
-                      Edit
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                        <path
+                          d="M11 2l3 3-8 8H3v-3l8-8z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </Link>
-                    <PricingDeactivateButton itemId={rule.id} name={rule.name} />
+                    <PricingDeleteButton itemId={rule.id} name={rule.name} />
                   </div>
                 </div>
 
@@ -150,17 +198,22 @@ export default async function AdminPricingPage({ searchParams }: PageProps) {
                   )}
                 </div>
 
-                {/* Includes */}
-                {(rule.include_application_fee || rule.include_jurisdiction_fee) && (
+                {/* Includes — per-fee chips, with the markup % when the per-fee markup is on */}
+                {(rule.include_application_fee || rule.include_permit_fee || rule.include_review_fee) && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {rule.include_application_fee && (
                       <span className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5">
-                        + App Fee
+                        + App Fee{rule.application_fee_markup ? ` (${rule.application_fee_markup_percent}%)` : ""}
                       </span>
                     )}
-                    {rule.include_jurisdiction_fee && (
+                    {rule.include_permit_fee && (
                       <span className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5">
-                        + Jur Fee
+                        + Permit Fee{rule.permit_fee_markup ? ` (${rule.permit_fee_markup_percent}%)` : ""}
+                      </span>
+                    )}
+                    {rule.include_review_fee && (
+                      <span className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5">
+                        + Review Fee{rule.review_fee_markup ? ` (${rule.review_fee_markup_percent}%)` : ""}
                       </span>
                     )}
                   </div>
@@ -193,22 +246,6 @@ export default async function AdminPricingPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* Inactive */}
-      {inactive.length > 0 && (
-        <details>
-          <summary className="cursor-pointer text-xs text-muted hover:text-dim transition-colors select-none">
-            {inactive.length} deactivated rule{inactive.length !== 1 ? "s" : ""}
-          </summary>
-          <div className="mt-3 bg-card rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 8px rgba(43,52,55,0.04)" }}>
-            {inactive.map((rule) => (
-              <div key={rule.id} className="flex items-center gap-4 px-5 py-3 border-b border-surface last:border-0 opacity-50">
-                <span className="text-sm text-muted">{rule.name}</span>
-                <span className="text-xs text-faint">{scopeLabel(rule)}</span>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }

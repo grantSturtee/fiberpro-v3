@@ -6,11 +6,27 @@ import { ACTIVE_STATUSES } from "@/lib/constants/project";
 
 export const metadata: Metadata = { title: "Companies" };
 
-export default async function AdminCompaniesPage() {
+export default async function AdminCompaniesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
+  const { show } = await searchParams;
+  const showArchived = show === "archived";
+
   const supabase = await createClient();
 
+  let companiesQuery = supabase
+    .from("companies")
+    .select("id, name, billing_email, archived_at")
+    .order("name");
+
+  companiesQuery = showArchived
+    ? companiesQuery.not("archived_at", "is", null)
+    : companiesQuery.is("archived_at", null);
+
   const [{ data: companiesData }, { data: projectsData }] = await Promise.all([
-    supabase.from("companies").select("id, name, billing_email").order("name"),
+    companiesQuery,
     supabase.from("projects").select("company_id, status"),
   ]);
 
@@ -30,19 +46,33 @@ export default async function AdminCompaniesPage() {
     }
   }
 
+  const subtitle = showArchived
+    ? `${companies.length} archived compan${companies.length !== 1 ? "ies" : "y"}`
+    : `${companies.length} active compan${companies.length !== 1 ? "ies" : "y"}`;
+
   return (
     <div className="p-8 space-y-6 max-w-4xl mx-auto">
       <PageHeader
         title="Companies"
-        subtitle={`${companies.length} client compan${companies.length !== 1 ? "ies" : "y"}`}
+        subtitle={subtitle}
         action={
-          <Link
-            href="/admin/companies/new"
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          >
-            + Add Company
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={showArchived ? "/admin/companies" : "/admin/companies?show=archived"}
+              className="text-sm text-muted hover:text-ink transition-colors"
+            >
+              {showArchived ? "← Active companies" : "Show archived"}
+            </Link>
+            {!showArchived && (
+              <Link
+                href="/admin/companies/new"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+              >
+                + Add Company
+              </Link>
+            )}
+          </div>
         }
       />
 
@@ -51,10 +81,14 @@ export default async function AdminCompaniesPage() {
           className="bg-card rounded-xl px-6 py-16 text-center"
           style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
         >
-          <p className="text-sm text-muted">No companies yet.</p>
-          <Link href="/admin/companies/new" className="mt-3 inline-block text-sm text-primary hover:underline">
-            Add the first company
-          </Link>
+          <p className="text-sm text-muted">
+            {showArchived ? "No archived companies." : "No companies yet."}
+          </p>
+          {!showArchived && (
+            <Link href="/admin/companies/new" className="mt-3 inline-block text-sm text-primary hover:underline">
+              Add the first company
+            </Link>
+          )}
         </div>
       ) : (
         <div
@@ -76,14 +110,25 @@ export default async function AdminCompaniesPage() {
                 href={`/admin/companies/${c.id}`}
                 className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-4 px-5 py-4 items-center hover:bg-surface transition-colors group"
               >
-                <div>
-                  <p className="text-sm font-medium text-ink group-hover:text-primary transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className={`text-sm font-medium transition-colors truncate ${c.archived_at ? "text-muted" : "text-ink group-hover:text-primary"}`}>
                     {c.name}
                   </p>
+                  {c.archived_at && (
+                    <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-surface text-muted border border-surface">
+                      Archived
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-dim truncate">{c.billing_email ?? "—"}</p>
-                <p className="text-sm font-medium text-ink">{activeMap[c.id] ?? 0}</p>
-                <p className="text-sm text-dim">{totalMap[c.id] ?? 0}</p>
+                <p className={`text-sm truncate ${c.archived_at ? "text-faint" : "text-dim"}`}>
+                  {c.billing_email ?? "—"}
+                </p>
+                <p className={`text-sm font-medium ${c.archived_at ? "text-faint" : "text-ink"}`}>
+                  {activeMap[c.id] ?? 0}
+                </p>
+                <p className={`text-sm ${c.archived_at ? "text-faint" : "text-dim"}`}>
+                  {totalMap[c.id] ?? 0}
+                </p>
               </Link>
             ))}
           </div>

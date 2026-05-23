@@ -49,7 +49,7 @@ export function AssignDesignerForm({
           name="designer_id"
           defaultValue={currentDesignerId ?? ""}
           required
-          className="flex-1 text-sm text-ink bg-canvas rounded-lg px-3 py-2 outline-none transition-colors"
+          className="min-w-0 flex-1 truncate text-sm text-ink bg-canvas rounded-lg px-3 py-2 outline-none transition-colors"
           style={{ border: "1px solid #d4dde4" }}
         >
           <option value="" disabled>

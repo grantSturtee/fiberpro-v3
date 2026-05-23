@@ -23,7 +23,7 @@ export function SignInForm() {
           className="w-full bg-surface rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint
                      outline-none transition-shadow focus:ring-2 focus:ring-primary/20 focus:ring-offset-0"
           style={{ border: "1px solid #d4dde4" }}
-          placeholder="you@fiberpro.com"
+          placeholder="you@granted.com"
         />
       </div>
 
