@@ -1,1 +1,0 @@
-SELECT id, name FROM authority_profiles;

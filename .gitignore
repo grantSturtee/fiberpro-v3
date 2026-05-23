@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase local CLI state and scratch files
+supabase/.branches/
+supabase/.temp/
+supabase/snippets/

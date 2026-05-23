@@ -1,1 +1,0 @@
-ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'client_admin';

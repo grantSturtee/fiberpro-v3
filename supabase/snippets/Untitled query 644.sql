@@ -1,1 +1,0 @@
-SELECT * FROM permit_templates;

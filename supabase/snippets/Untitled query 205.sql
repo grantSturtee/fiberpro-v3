@@ -1,8 +1,0 @@
-ALTER TABLE projects
-ADD COLUMN IF NOT EXISTS submission_method TEXT,
-ADD COLUMN IF NOT EXISTS submission_status TEXT,
-ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS submitted_to TEXT,
-ADD COLUMN IF NOT EXISTS submission_notes TEXT,
-ADD COLUMN IF NOT EXISTS recipient_name TEXT,
-ADD COLUMN IF NOT EXISTS tracking_number TEXT;
