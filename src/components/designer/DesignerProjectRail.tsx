@@ -18,7 +18,7 @@ type FileNavItem = { label: string; count: number; targetId: string };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6B7280] mb-1.5">
       {children}
     </p>
   );
@@ -76,7 +76,7 @@ export function DesignerProjectRail({
 
   return (
     <div
-      className="relative flex-shrink-0 flex flex-col border-l border-surface bg-canvas overflow-hidden"
+      className="relative flex-shrink-0 flex flex-col border-l border-[#E5E7EB] bg-[#F8F9FB] overflow-hidden"
       style={{ width: railWidth }}
     >
       {/* Invisible resize handle — left edge, full height */}
@@ -94,12 +94,12 @@ export function DesignerProjectRail({
       {/* ── BOTTOM: Project Conversation — fills all remaining space ──────── */}
       <div
         className="flex-1 overflow-hidden flex flex-col min-h-0 px-3 pt-3 pb-3"
-        style={{ borderTop: "1px solid #e3e9ec", marginTop: "0.75rem" }}
+        style={{ borderTop: "1px solid #E5E7EB", marginTop: "0.75rem" }}
       >
         <div className="flex items-center gap-2 mb-1.5">
           <SectionLabel>Project Conversation</SectionLabel>
           {displayUnreadCount > 0 && (
-            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-white mb-1.5 flex-shrink-0">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#1565C0] text-[9px] font-bold text-white mb-1.5 flex-shrink-0">
               {displayUnreadCount > 9 ? "9+" : displayUnreadCount}
             </span>
           )}
