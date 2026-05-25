@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AlertTriangle, ChevronRight } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { createClient } from "@/lib/supabase/server";
 import { getDesignerProjectList } from "@/lib/queries/projects";
@@ -61,46 +63,50 @@ function ProjectRowCard({
     <Link
       href={`/designer/projects/${project.id}`}
       className={[
-        "flex items-center gap-4 bg-card rounded-lg px-4 py-3 hover:shadow-sm transition-all group",
-        needsUpdate ? "border-l-[3px] border-amber-400" : "border-l-[3px] border-transparent",
+        "flex items-center gap-4 bg-white rounded-lg px-4 py-3 group",
+        "border border-[#E5E7EB] hover:border-[#1565C0] transition-colors",
+        needsUpdate
+          ? "border-l-[3px] border-l-[#D97706]"
+          : "border-l-[3px] border-l-transparent",
       ].join(" ")}
-      style={{ boxShadow: "0 1px 4px rgba(43,52,55,0.06)" }}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 min-w-0">
-          <p className="text-[11px] font-mono text-faint flex-shrink-0">{project.job_number}</p>
-          <p className="text-sm font-semibold text-ink truncate group-hover:text-primary transition-colors">
+          <p className="text-[11px] font-mono text-[#9CA3AF] flex-shrink-0">
+            {project.job_number}
+          </p>
+          <p className="text-[14px] font-semibold text-[#111827] truncate group-hover:text-[#1565C0] transition-colors">
             {project.job_name}
           </p>
         </div>
-        <p className="mt-0.5 text-xs text-muted truncate">
+        <p className="mt-0.5 text-[12px] text-[#6B7280] truncate">
           {project.company_name ?? "—"} · {authorityDisplay}
         </p>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {showRevisions && (
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-50 text-red-700">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[#FEF2F2] text-[#DC2626]">
             Revisions
           </span>
         )}
         {needsUpdate && (
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[#FFFBEB] text-[#D97706]">
             Needs update
           </span>
         )}
         {showNoSld && (
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-50 text-red-400">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#FEF2F2] text-[#DC2626]">
             No SLD
           </span>
         )}
         {tcpCount > 0 && (
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-surface text-muted">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#F3F4F6] text-[#6B7280]">
             {tcpCount} TCP
           </span>
         )}
         {project.requested_approval_date && (
-          <span className="text-xs text-muted">
+          <span className="text-[12px] text-[#6B7280]">
             Due {formatDate(project.requested_approval_date)}
           </span>
         )}
@@ -119,16 +125,16 @@ function ProjectCompactRow({ project }: { project: ProjectListRow }) {
     <div className="flex items-center gap-3 py-2 px-1">
       <Link
         href={`/designer/projects/${project.id}`}
-        className="text-sm text-ink hover:text-primary transition-colors font-medium truncate flex-1 min-w-0"
+        className="text-[14px] font-medium text-[#111827] hover:text-[#1565C0] transition-colors truncate flex-1 min-w-0"
       >
         {project.job_name}
       </Link>
       <div className="flex items-center gap-2 flex-shrink-0">
         <ProjectStatusBadge status={project.unified_status} />
-        <span className="text-xs text-faint hidden sm:inline w-28 truncate text-right">
+        <span className="hidden sm:inline w-28 truncate text-right text-[12px] text-[#9CA3AF]">
           {authorityDisplay}
         </span>
-        <span className="text-xs text-faint w-20 text-right">
+        <span className="w-20 text-right text-[12px] text-[#9CA3AF]">
           {formatDate(project.updated_at)}
         </span>
       </div>
@@ -230,26 +236,25 @@ export default async function DesignerDashboardPage() {
   const activeCount = projects.filter((p) => !CLOSED_STATUSES.has(p.unified_status)).length;
 
   return (
-    <div className="p-8 space-y-8 max-w-3xl mx-auto">
+    <div className="p-8 space-y-8">
 
-      {/* Header */}
+      {/* Header + optional stale banner — grouped so the banner sits close to the title */}
       <div>
-        <h1 className="text-xl font-semibold text-ink">My Work</h1>
-        {displayName && (
-          <p className="mt-0.5 text-sm text-muted">
-            {displayName} · {activeCount} active
-          </p>
-        )}
+        <PageHeader
+          title="My Work"
+          size="sm"
+          subtitle={displayName ? `${displayName} · ${activeCount} active` : undefined}
+        />
         {staleProjectIds.size > 0 && (
           <div
-            className="mt-3 flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-amber-700"
-            style={{ background: "#fffbeb", border: "1px solid #fcd34d" }}
+            className="mt-3 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px]"
+            style={{
+              background: "#FFFBEB",
+              border: "1px solid #FCD34D",
+              color: "#92400E",
+            }}
           >
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="flex-shrink-0">
-              <path d="M8 2L14 13H2L8 2z" />
-              <line x1="8" y1="7" x2="8" y2="10" />
-              <circle cx="8" cy="12" r="0.5" fill="currentColor" />
-            </svg>
+            <AlertTriangle size={13} strokeWidth={1.5} color="#D97706" className="flex-shrink-0" />
             <span>
               {staleProjectIds.size === 1
                 ? "1 project needs a status update."
@@ -260,11 +265,8 @@ export default async function DesignerDashboardPage() {
       </div>
 
       {projects.length === 0 ? (
-        <div
-          className="bg-card rounded-xl px-6 py-16 text-center"
-          style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
-        >
-          <p className="text-sm text-muted">No projects assigned yet.</p>
+        <div className="bg-white border border-[#E5E7EB] rounded-lg px-6 py-16 text-center">
+          <p className="text-[14px] text-[#6B7280]">No projects assigned yet.</p>
         </div>
       ) : (
         <>
@@ -282,7 +284,7 @@ export default async function DesignerDashboardPage() {
             const useCompact = group.collapsible === true;
 
             const rows = useCompact ? (
-              <div className="divide-y" style={{ borderColor: "#e9eef1" }}>
+              <div className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden divide-y divide-[#F3F4F6]">
                 {groupProjects.map((p) => (
                   <ProjectCompactRow key={p.id} project={p} />
                 ))}
@@ -304,19 +306,17 @@ export default async function DesignerDashboardPage() {
             if (group.collapsible) {
               return (
                 <details key={group.key} className="group/details">
-                  <summary className="list-none cursor-pointer select-none rounded-lg hover:bg-wash transition-colors -mx-2 px-2 py-1.5">
+                  <summary className="list-none cursor-pointer select-none rounded-lg hover:bg-[#F9FAFB] transition-colors -mx-2 px-2 py-1.5">
                     <div className="flex items-center gap-2">
-                      <svg
-                        width="12" height="12" viewBox="0 0 12 12" fill="none"
-                        className="text-faint transition-transform group-open/details:rotate-90 flex-shrink-0"
-                        aria-hidden
-                      >
-                        <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      <h2 className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      <ChevronRight
+                        size={12}
+                        strokeWidth={1.5}
+                        className="text-[#9CA3AF] transition-transform group-open/details:rotate-90 flex-shrink-0"
+                      />
+                      <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[#374151]">
                         {group.label}
                       </h2>
-                      <span className="text-[10px] text-faint">{groupProjects.length}</span>
+                      <span className="text-[10px] text-[#9CA3AF]">{groupProjects.length}</span>
                     </div>
                   </summary>
                   <div className="mt-3">{rows}</div>
@@ -327,11 +327,11 @@ export default async function DesignerDashboardPage() {
             return (
               <section key={group.key}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-xs font-semibold text-muted uppercase tracking-wider">
+                  <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[#374151]">
                     {group.label}
                   </h2>
                   {group.urgent && (
-                    <span className="text-[10px] font-bold text-danger bg-danger/10 rounded-full px-2 py-0.5">
+                    <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-[#FEE2E2] text-[#DC2626]">
                       Action needed
                     </span>
                   )}
