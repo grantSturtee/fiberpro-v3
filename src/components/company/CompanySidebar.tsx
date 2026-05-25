@@ -7,10 +7,12 @@ import {
   FolderOpen,
   Receipt,
   Users,
+  LogOut,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react";
+import { signOut } from "@/app/actions/auth";
 
 // ── Nav definition ───────────────────────────────────────────────────────────
 
@@ -24,19 +26,43 @@ type NavItem = {
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
-export function CompanySidebar({ role }: { role?: string }) {
+type SidebarUser = {
+  displayName: string;
+  role: string;
+  avatarUrl: string | null;
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function formatRole(role: string): string {
+  return role
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function CompanySidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems: NavItem[] = [
     { label: "Projects", href: "/company/projects", icon: FolderOpen },
     { label: "Invoices", href: "/company/invoices", icon: Receipt },
-    ...(role === "company_admin"
+    ...(user.role === "company_admin"
       ? [{ label: "Team", href: "/company/team", icon: Users }]
       : []),
   ];
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch.
   useEffect(() => {
     try {
       if (localStorage.getItem("company-sidebar-collapsed") === "true") {
@@ -60,8 +86,6 @@ export function CompanySidebar({ role }: { role?: string }) {
   }
 
   function isActive(href: string) {
-    // Projects also matches /company root (the company dashboard) since there
-    // is no separate Dashboard nav item in the company portal.
     if (href === "/company/projects") {
       return pathname === "/company" || pathname.startsWith("/company/projects");
     }
@@ -133,6 +157,72 @@ export function CompanySidebar({ role }: { role?: string }) {
           <NavLink key={item.href} item={item} />
         ))}
       </nav>
+
+      {/* User section */}
+      <div className="px-3 pt-2 pb-3 border-t border-[#E5E7EB]">
+        {collapsed ? (
+          <div className="flex justify-center">
+            <Avatar user={user} title={user.displayName} />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Avatar user={user} />
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-[#111827] leading-tight truncate">
+                  {user.displayName}
+                </p>
+                <p className="text-[11px] font-normal text-[#6B7280] leading-tight truncate mt-0.5">
+                  {formatRole(user.role)}
+                </p>
+              </div>
+            </div>
+            <form action={signOut} className="flex-shrink-0">
+              <button
+                type="submit"
+                title="Sign out"
+                aria-label="Sign out"
+                className="flex items-center justify-center w-6 h-6 rounded text-[#6B7280] hover:text-[#DC2626] transition-colors"
+              >
+                <LogOut size={16} strokeWidth={1.5} />
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </aside>
+  );
+}
+
+// ── Avatar (inline) ──────────────────────────────────────────────────────────
+
+function Avatar({ user, title }: { user: SidebarUser; title?: string }) {
+  if (user.avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={user.avatarUrl}
+        alt={user.displayName}
+        title={title}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{ width: 32, height: 32 }}
+      />
+    );
+  }
+  return (
+    <div
+      title={title}
+      className="flex items-center justify-center rounded-full flex-shrink-0"
+      style={{
+        width: 32,
+        height: 32,
+        background: "#1565C0",
+        color: "#FFFFFF",
+        fontSize: 12,
+        fontWeight: 600,
+      }}
+    >
+      {getInitials(user.displayName)}
+    </div>
   );
 }

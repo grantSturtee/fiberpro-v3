@@ -38,13 +38,15 @@ export default async function CompanyProjectsPage() {
         title="All Projects"
         subtitle={`${projects.length} project${projects.length !== 1 ? "s" : ""}`}
         action={
-          <Link
-            href="/company/submit"
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          >
-            + Submit Project
-          </Link>
+          memberRole === "company_admin" ? (
+            <Link
+              href="/company/submit"
+              className="px-4 py-2 rounded-lg text-[13px] font-semibold text-white transition-colors hover:bg-[#1251A3]"
+              style={{ background: "#1565C0" }}
+            >
+              + Submit Project
+            </Link>
+          ) : undefined
         }
       />
 
@@ -54,14 +56,20 @@ export default async function CompanyProjectsPage() {
           style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
         >
           <p className="text-sm font-medium text-ink mb-1">No projects yet</p>
-          <p className="text-xs text-muted mb-4">Submit your first project to get started.</p>
-          <Link
-            href="/company/submit"
-            className="inline-block px-4 py-2 rounded-lg text-xs font-semibold text-white"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
-          >
-            Submit Project
-          </Link>
+          {memberRole === "company_admin" ? (
+            <>
+              <p className="text-xs text-muted mb-4">Submit your first project to get started.</p>
+              <Link
+                href="/company/submit"
+                className="inline-block px-4 py-2 rounded-lg text-[13px] font-semibold text-white hover:bg-[#1251A3] transition-colors"
+                style={{ background: "#1565C0" }}
+              >
+                Submit Project
+              </Link>
+            </>
+          ) : (
+            <p className="text-xs text-muted">No projects assigned to you yet.</p>
+          )}
         </div>
       ) : (
         <div

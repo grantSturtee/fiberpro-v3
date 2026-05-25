@@ -5,7 +5,7 @@ import { CompanySidebar } from "@/components/company/CompanySidebar";
 import { CompanyTopbar } from "@/components/company/CompanyTopbar";
 
 // Company layout: sidebar + topbar shell.
-// Fetches company name, user display name, and membership role for nav gating.
+// Fetches user profile (display name, role, avatar) and company name.
 
 export default async function CompanyLayout({
   children,
@@ -13,47 +13,63 @@ export default async function CompanyLayout({
   children: React.ReactNode;
 }) {
   let companyName: string | undefined;
-  let displayName: string | undefined;
-  let initials: string | undefined;
   let companyArchived = false;
-  let memberRole: string | undefined;
+  let displayName = "User";
+  let role = "project_manager";
+  let avatarUrl: string | null = null;
 
   try {
     const supabase = await createClient();
-    // getClaims() reads JWT claims locally — no network round-trip, no token refresh.
     const { data: claimsData } = await supabase.auth.getClaims();
     const claims = claimsData?.claims;
 
     if (claims) {
       const userId = claims.sub;
-      const [membership, profileData] = await Promise.all([
-        getCompanyMembership(supabase, userId),
-        supabase
-          .from("user_profiles")
-          .select("display_name")
-          .eq("id", userId)
-          .single(),
-      ]);
 
+      // Core profile — display name and role only. Must never be broken by
+      // schema additions.
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("display_name, role")
+        .eq("id", userId)
+        .single();
+
+      // Avatar URL — separate query so a missing column cannot affect
+      // display name resolution.
+      const { data: avatarData } = await supabase
+        .from("user_profiles")
+        .select("avatar_url")
+        .eq("id", userId)
+        .single();
+
+      const metaDisplayName = (claims.user_metadata?.display_name as string | undefined)?.trim();
+      displayName =
+        profile?.display_name?.trim() ||
+        metaDisplayName ||
+        claims.email ||
+        "User";
+
+      const membership = await getCompanyMembership(supabase, userId);
       if (membership) {
-        memberRole = membership.role;
+        role = membership.role;
         const company = await getCompany(supabase, membership.company_id);
         companyName = company?.name ?? undefined;
         companyArchived = !!company?.archived_at;
+      } else if (profile?.role) {
+        role = profile.role;
       }
 
-      const name = profileData.data?.display_name || (claims.email ?? "") || "";
-      displayName = name;
-      initials = name
-        .split(" ")
-        .filter(Boolean)
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase() || "?";
+      // Convert stored avatar path to a signed URL. Falls back to null
+      // (initials) if absent or signing fails.
+      if (avatarData?.avatar_url) {
+        const { data: signed } = await supabase.storage
+          .from("avatars")
+          .createSignedUrl(avatarData.avatar_url, 3600);
+        avatarUrl = signed?.signedUrl ?? null;
+      }
     }
   } catch {
-    // Non-fatal — shell renders without user/company info
+    // Non-fatal — shell renders with defaults
   }
 
   if (companyArchived) {
@@ -62,13 +78,9 @@ export default async function CompanyLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <CompanySidebar role={memberRole} />
+      <CompanySidebar user={{ displayName, role, avatarUrl }} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <CompanyTopbar
-          companyName={companyName}
-          displayName={displayName}
-          initials={initials}
-        />
+        <CompanyTopbar companyName={companyName} />
         <main className="flex-1 overflow-y-auto min-w-0">
           {children}
         </main>
