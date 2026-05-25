@@ -84,13 +84,14 @@ export default async function WorkflowJobPage({
 
   return (
     <div className="p-8 space-y-6 max-w-4xl mx-auto">
+      <Link
+        href="/admin/workflows"
+        className="text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors"
+      >
+        ← Workflow Jobs
+      </Link>
       <PageHeader
         title={JOB_TYPE_LABELS[job.job_type as string] ?? job.job_type}
-        meta={
-          <Link href="/admin/workflows" className="hover:underline">
-            ← Workflow Jobs
-          </Link>
-        }
       />
 
       {/* Overview */}

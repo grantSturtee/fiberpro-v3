@@ -46,7 +46,7 @@ export default async function AdminProfilePage() {
 
   return (
     <div className="p-8 space-y-6 max-w-2xl mx-auto">
-      <PageHeader title="Profile" subtitle="Manage your account information." />
+      <PageHeader title="Profile" subtitle="Manage your account information." size="sm" />
       <SectionCard title="Account">
         <ProfileForm user={user} action={updateOwnProfile} />
       </SectionCard>
