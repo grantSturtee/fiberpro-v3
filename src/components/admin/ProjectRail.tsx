@@ -35,7 +35,7 @@ type FileNavItem = { label: string; count: number; targetId: string };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6B7280] mb-1.5">
       {children}
     </p>
   );
@@ -111,7 +111,7 @@ export function ProjectRail({
 
   return (
     <div
-      className="relative flex-shrink flex flex-col border-l border-surface bg-canvas overflow-hidden"
+      className="relative flex-shrink flex flex-col border-l border-[#E5E7EB] bg-[#F8F9FB] overflow-hidden"
       style={{ width: railWidth }}
     >
       {/* Invisible resize handle — left edge, full height */}
@@ -147,13 +147,13 @@ export function ProjectRail({
               <div className="flex items-center gap-2">
                 <UserAvatar displayName={designerName} avatarUrl={designerAvatarUrl} size="xs" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-ink truncate">{designerName}</p>
-                  <p className="text-[10px] text-muted leading-tight">Assigned {formatDate(assignedAt)}</p>
+                  <p className="text-xs font-medium text-[#111827] truncate">{designerName}</p>
+                  <p className="text-[10px] text-[#6B7280] leading-tight">Assigned {formatDate(assignedAt)}</p>
                 </div>
               </div>
               {!isTerminal && designers.length > 0 && (
                 <details className="group">
-                  <summary className="list-none cursor-pointer text-[10px] text-primary hover:underline select-none [&::-webkit-details-marker]:hidden">
+                  <summary className="list-none cursor-pointer text-[10px] text-[#1565C0] hover:underline select-none [&::-webkit-details-marker]:hidden">
                     Reassign →
                   </summary>
                   <div className="mt-2">
@@ -173,12 +173,12 @@ export function ProjectRail({
               currentDesignerId={null}
             />
           ) : (
-            <p className="text-xs text-muted">Unassigned</p>
+            <p className="text-xs text-[#6B7280]">Unassigned</p>
           )}
         </div>
 
         {/* Files */}
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-3">
+        <div className="pt-3" style={{ borderTop: "1px solid #E5E7EB" }}>
           <SectionLabel>Files</SectionLabel>
           <RailFileNav containerId="project-main-scroll" items={fileNavItems} />
         </div>
@@ -188,12 +188,12 @@ export function ProjectRail({
       {/* ── BOTTOM: Project Conversation — fills all remaining space ──────── */}
       <div
         className="flex-1 overflow-hidden flex flex-col min-h-0 px-3 pt-3 pb-3"
-        style={{ borderTop: "1px solid #e3e9ec", marginTop: "0.75rem" }}
+        style={{ borderTop: "1px solid #E5E7EB", marginTop: "0.75rem" }}
       >
         <div className="flex items-center gap-2 mb-1.5">
           <SectionLabel>Project Conversation</SectionLabel>
           {displayUnreadCount > 0 && (
-            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-white mb-1.5 flex-shrink-0">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#1565C0] text-[9px] font-bold text-white mb-1.5 flex-shrink-0">
               {displayUnreadCount > 9 ? "9+" : displayUnreadCount}
             </span>
           )}

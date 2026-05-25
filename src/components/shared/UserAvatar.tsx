@@ -1,5 +1,6 @@
-// Shared avatar component for internal users (admin, designer).
-// Renders profile photo when available; falls back to initials badge.
+// Shared avatar component for internal users (admin, designer, company).
+// Renders profile photo when available; falls back to initials badge with
+// brand-blue background and white initials per design.md.
 
 type Size = "xs" | "sm" | "md" | "lg";
 
@@ -44,10 +45,10 @@ export function UserAvatar({ displayName, avatarUrl, size = "sm" }: Props) {
 
   return (
     <div
-      className="rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0"
-      style={dim}
+      className="rounded-full flex items-center justify-center flex-shrink-0"
+      style={{ ...dim, background: "#1565C0" }}
     >
-      <span className={`${textClass} font-semibold text-primary`}>
+      <span className={`${textClass} font-semibold text-white`}>
         {getInitials(displayName)}
       </span>
     </div>

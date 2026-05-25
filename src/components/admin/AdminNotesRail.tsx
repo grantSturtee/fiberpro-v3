@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Trash2, Pencil, X } from "lucide-react";
 import {
   sendProjectMessage,
   updateProjectNote,
@@ -48,35 +49,6 @@ function formatFullDateTime(iso: string): string {
   );
 }
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-function TrashIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="2,4 14,4" />
-      <path d="M5,4V2h6v2" />
-      <path d="M3,4l1,10h8l1-10" />
-    </svg>
-  );
-}
-
-function PenIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-      <line x1="3" y1="3" x2="13" y2="13" />
-      <line x1="13" y1="3" x2="3" y2="13" />
-    </svg>
-  );
-}
-
 // ── Buttons ───────────────────────────────────────────────────────────────────
 
 function AddButton() {
@@ -85,8 +57,7 @@ function AddButton() {
     <button
       type="submit"
       disabled={pending}
-      className="mt-1.5 w-full px-2 py-1 rounded text-[11px] font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className="mt-1.5 w-full px-2 py-1 rounded text-[11px] font-semibold text-white bg-[#1565C0] hover:bg-[#1251A3] disabled:opacity-50 transition-colors"
     >
       {pending ? "Sending…" : "Send Message"}
     </button>
@@ -100,12 +71,9 @@ function EditButton({ isDirty }: { isDirty: boolean }) {
     <button
       type="submit"
       disabled={!active}
-      className="mt-1.5 w-full px-2 py-1 rounded text-[11px] font-semibold text-white transition-all"
-      style={
-        active
-          ? { background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }
-          : { background: "#c8d3da", cursor: "default" }
-      }
+      className={`mt-1.5 w-full px-2 py-1 rounded text-[11px] font-semibold text-white transition-colors ${
+        active ? "bg-[#1565C0] hover:bg-[#1251A3]" : "bg-[#E5E7EB] cursor-default"
+      }`}
     >
       {pending ? "Saving…" : "Make Changes"}
     </button>
@@ -186,6 +154,9 @@ export function AdminNotesRail({
   const canEdit = (note: NoteEntry) => note.sender_id === currentUserId;
   const canDelete = (note: NoteEntry) => note.sender_id === currentUserId || isAdmin;
 
+  const textareaClass =
+    "w-full text-[14px] text-[#111827] bg-white rounded-md px-3 py-2 resize-none border border-[#D1D5DB] focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF] placeholder:text-[#9CA3AF]";
+
   return (
     <div className="h-full flex flex-col">
       {/* Message feed — column-reverse gives true bottom-anchored chat behavior.
@@ -193,38 +164,38 @@ export function AdminNotesRail({
           No JavaScript scroll needed — the browser anchors overflow at the bottom. */}
       <div ref={feedRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 pr-0.5" onScroll={onEngaged}>
         {notes.length === 0 ? (
-          <p className="text-[10px] text-faint italic py-1">No messages yet.</p>
+          <p className="text-[10px] text-[#9CA3AF] italic py-1">No messages yet.</p>
         ) : (
           notes.map((note) => (
             <div key={note.id} className="group">
 
               {/* Inline delete confirmation */}
               {confirmDeleteId === note.id ? (
-                <div className="flex items-center justify-between rounded-lg px-2 py-1.5 bg-surface">
-                  <span className="text-[9px] font-medium text-red-500">Delete this message?</span>
+                <div className="flex items-center justify-between rounded-lg px-2 py-1.5 bg-[#F8F9FB]">
+                  <span className="text-[9px] font-medium text-[#DC2626]">Delete this message?</span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
-                      className="p-0.5 rounded text-muted hover:text-ink hover:bg-wash transition-colors"
+                      className="p-0.5 rounded text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB] transition-colors"
                       title="Cancel"
                     >
-                      <XIcon />
+                      <X size={11} strokeWidth={1.75} />
                     </button>
                     <form action={deleteAction} className="inline-flex">
                       <input type="hidden" name="note_id" value={note.id} />
                       <input type="hidden" name="revalidate_path" value={revalidatePath} />
                       <button
                         type="submit"
-                        className="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-0.5 rounded text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
                         title="Confirm delete"
                       >
-                        <TrashIcon />
+                        <Trash2 size={11} strokeWidth={1.5} />
                       </button>
                     </form>
                   </div>
                   {deleteState.error && (
-                    <p className="text-[9px] text-red-500 mt-0.5">{deleteState.error}</p>
+                    <p className="text-[9px] text-[#DC2626] mt-0.5">{deleteState.error}</p>
                   )}
                 </div>
               ) : (
@@ -236,10 +207,10 @@ export function AdminNotesRail({
                   </div>
 
                   {/* Bubble */}
-                  <div className="flex-1 min-w-0 rounded-xl px-2 py-1.5" style={{ background: "#f0f4f7" }}>
+                  <div className="flex-1 min-w-0 rounded-xl px-2 py-1.5" style={{ background: "#F3F4F6" }}>
                     {/* Name row + action icons */}
                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <p className="text-[11px] font-semibold text-ink leading-tight truncate">
+                      <p className="text-[11px] font-semibold text-[#111827] leading-tight truncate">
                         {note.sender_label}
                       </p>
                       {/* Action icons — visible on hover */}
@@ -248,31 +219,31 @@ export function AdminNotesRail({
                           <button
                             type="button"
                             onClick={() => startEdit(note)}
-                            className="p-0.5 rounded text-faint hover:text-primary hover:bg-primary-soft transition-colors"
+                            className="p-0.5 rounded text-[#9CA3AF] hover:text-[#1565C0] hover:bg-[#E8F0FE] transition-colors"
                             title="Edit message"
                           >
-                            <PenIcon />
+                            <Pencil size={11} strokeWidth={1.5} />
                           </button>
                         )}
                         {canDelete(note) && (
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(note.id)}
-                            className="p-0.5 rounded text-faint hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="p-0.5 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
                             title="Delete message"
                           >
-                            <TrashIcon />
+                            <Trash2 size={11} strokeWidth={1.5} />
                           </button>
                         )}
                       </div>
                     </div>
 
                     {/* Message body — whitespace-pre-wrap preserves line breaks */}
-                    <p className="text-xs text-ink leading-snug break-words whitespace-pre-wrap">{note.body}</p>
+                    <p className="text-xs text-[#111827] leading-snug break-words whitespace-pre-wrap">{note.body}</p>
 
                     {/* Timestamp */}
                     <p
-                      className="text-[9px] text-faint mt-0 text-right"
+                      className="text-[9px] text-[#9CA3AF] mt-0 text-right"
                       title={formatFullDateTime(note.created_at)}
                     >
                       {formatSmartDate(note.created_at)}
@@ -286,7 +257,7 @@ export function AdminNotesRail({
       </div>
 
       {/* Composer — anchored at bottom */}
-      <div style={{ borderTop: "1px solid #e3e9ec" }} className="flex-shrink-0 pt-2">
+      <div className="flex-shrink-0 pt-2" style={{ borderTop: "1px solid #E5E7EB" }}>
         {editingNote ? (
           <form action={editAction}>
             <input type="hidden" name="note_id" value={editingNote.id} />
@@ -297,20 +268,19 @@ export function AdminNotesRail({
               required
               value={composerText}
               onChange={(e) => setComposerText(e.target.value)}
-              className="w-full text-[11px] text-ink bg-card rounded-md px-2 py-1.5 resize-none outline-none"
-              style={{ border: "1px solid #d4dde4" }}
+              className={textareaClass}
               placeholder="Edit message…"
             />
             <EditButton isDirty={isDirty} />
             <button
               type="button"
               onClick={cancelEdit}
-              className="mt-1 block w-full text-center text-[10px] text-primary hover:underline"
+              className="mt-1 block w-full text-center text-[10px] text-[#1565C0] hover:underline"
             >
               Cancel
             </button>
             {editState.error && (
-              <p className="mt-1 text-[10px] text-red-600">{editState.error}</p>
+              <p className="mt-1 text-[10px] text-[#DC2626]">{editState.error}</p>
             )}
           </form>
         ) : (
@@ -324,18 +294,17 @@ export function AdminNotesRail({
               value={composerText}
               onChange={(e) => setComposerText(e.target.value)}
               onFocus={onEngaged}
-              className="w-full text-[11px] text-ink bg-card rounded-md px-2 py-1.5 resize-none outline-none"
-              style={{ border: "1px solid #d4dde4" }}
+              className={textareaClass}
               placeholder="Message the project team…"
             />
             <AddButton />
             {addState.error && (
-              <p className="mt-1 text-[10px] text-red-600">{addState.error}</p>
+              <p className="mt-1 text-[10px] text-[#DC2626]">{addState.error}</p>
             )}
           </form>
         )}
         {showEditSuccess && !editingNote && (
-          <p className="mt-1 text-[10px] text-emerald-600">Changes made</p>
+          <p className="mt-1 text-[10px] text-[#16A34A]">Changes made</p>
         )}
       </div>
     </div>
