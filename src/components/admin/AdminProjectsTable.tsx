@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Check, Minus, ChevronsUpDown, X } from "lucide-react";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import {
   computeSubmissionAlert,
@@ -10,19 +11,28 @@ import {
 } from "@/lib/alerts/submissionAlerts";
 import { formatDate } from "@/lib/utils/format";
 import type { ProjectListRow } from "@/lib/queries/projects";
-import { UserAvatar } from "@/components/shared/UserAvatar";
 import {
   bulkMarkWaitingOnAuthority,
   bulkMarkInvoiceSent,
   type BulkActionResult,
 } from "@/app/(admin)/admin/projects/bulk-actions";
 
-// Column layout: checkbox + 5 data columns.
-const COLS = "grid-cols-[1.5rem_2fr_1.5fr_1fr_1fr_1fr]";
+// ── Responsive column layout ──────────────────────────────────────────────────
+// Single grid template per breakpoint; optional cells are conditionally
+// rendered so hidden cells don't reserve grid slots.
+//
+//   sm  (default): Checkbox · Job Name · Status                      (3 cols)
+//   md  (≥ 768px): + Job Number, Company                             (5 cols)
+//   lg  (≥1024px): + Jurisdiction, Designer, Date                    (8 cols)
+
+const GRID_CLASSES = [
+  "grid-cols-[40px_minmax(0,2fr)_140px]",
+  "md:grid-cols-[40px_110px_minmax(0,2fr)_minmax(0,1fr)_140px]",
+  "lg:grid-cols-[40px_110px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_140px_100px]",
+].join(" ");
 
 type BulkAction = "submission" | "billing";
 
-// Per-action display config used by both the button labels and the result messages.
 const BULK_ACTION_CONFIG: Record<BulkAction, {
   label:        string;
   pendingLabel: string;
@@ -43,7 +53,113 @@ const BULK_ACTION_CONFIG: Record<BulkAction, {
   },
 };
 
-// ── Bulk Action Bar ────────────────────────────────────────────────────────────
+// ── Checkbox (inline) ─────────────────────────────────────────────────────────
+// Matches the design.md table-checkbox spec (16x16, 1.5px border #D1D5DB,
+// 3px radius, checked bg #1565C0 with white checkmark). Hidden native input
+// is overlaid for keyboard / accessibility.
+
+function Checkbox({
+  checked,
+  indeterminate = false,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  const filled = checked || indeterminate;
+
+  return (
+    <label className="relative inline-flex items-center justify-center cursor-pointer">
+      <input
+        ref={inputRef}
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        aria-label={label}
+        className="sr-only"
+      />
+      <span
+        aria-hidden
+        className="flex items-center justify-center rounded-[3px] transition-colors"
+        style={{
+          width: 16,
+          height: 16,
+          background: filled ? "#1565C0" : "#FFFFFF",
+          border: filled ? "1.5px solid #1565C0" : "1.5px solid #D1D5DB",
+        }}
+      >
+        {indeterminate ? (
+          <Minus size={10} strokeWidth={3} color="#FFFFFF" />
+        ) : checked ? (
+          <Check size={10} strokeWidth={3} color="#FFFFFF" />
+        ) : null}
+      </span>
+    </label>
+  );
+}
+
+// ── Designer avatar (inline) ──────────────────────────────────────────────────
+// 28px variant to fit comfortably in the 44px row.
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function DesignerAvatar({ name }: { name: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-full flex-shrink-0"
+      style={{
+        width: 28,
+        height: 28,
+        background: "#1565C0",
+        color: "#FFFFFF",
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
+
+// ── Header cell (visual sort affordance only — no sort behavior yet) ─────────
+
+function HeaderCell({
+  label,
+  sortable = false,
+  align = "left",
+}: {
+  label: string;
+  sortable?: boolean;
+  align?: "left" | "right";
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#374151]"
+      style={{ justifyContent: align === "right" ? "flex-end" : "flex-start", width: "100%" }}
+    >
+      {label}
+      {sortable && <ChevronsUpDown size={10} strokeWidth={1.5} color="#9CA3AF" />}
+    </span>
+  );
+}
+
+// ── Bulk Action Bar ───────────────────────────────────────────────────────────
 
 function BulkActionBar({
   selected,
@@ -66,10 +182,10 @@ function BulkActionBar({
 
   return (
     <div
-      className="px-5 py-3 flex items-center gap-3 flex-wrap"
-      style={{ background: "#eef4ff", borderBottom: "1px solid #c7d9f8" }}
+      className="rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap text-white"
+      style={{ background: "#1565C0" }}
     >
-      <span className="text-sm font-semibold text-primary flex-shrink-0">
+      <span className="text-[13px] font-semibold flex-shrink-0">
         {selected.size} selected
       </span>
 
@@ -81,8 +197,7 @@ function BulkActionBar({
             key={action}
             onClick={() => onAction(action)}
             disabled={isPending}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90 flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+            className="px-3 py-1.5 rounded-md text-[12px] font-semibold bg-white/20 hover:bg-white/30 disabled:opacity-50 transition-colors flex-shrink-0"
           >
             {isThisAction ? cfg.pendingLabel : cfg.label}
           </button>
@@ -92,32 +207,30 @@ function BulkActionBar({
       <button
         onClick={onClear}
         disabled={isPending}
-        className="text-xs text-muted hover:text-dim transition-colors disabled:opacity-40"
+        className="text-[12px] text-white/80 hover:text-white transition-colors disabled:opacity-40"
       >
         Clear
       </button>
 
       {result && lastAction && (
         <div className="flex items-center gap-2 ml-auto min-w-0">
-          {result.error ? (
-            <span className="text-xs font-medium text-red-700 truncate">{result.error}</span>
-          ) : (
-            <span className={`text-xs font-medium truncate ${result.updated > 0 ? "text-emerald-700" : "text-muted"}`}>
-              {result.updated > 0
+          <span className="text-[12px] font-medium text-white truncate">
+            {result.error
+              ? result.error
+              : result.updated > 0
                 ? `${result.updated} ${BULK_ACTION_CONFIG[lastAction].successLabel}${
                     result.skipped.length > 0
                       ? ` · ${result.skipped.length} skipped`
                       : ""
                   }`
                 : `0 updated — selected projects ${BULK_ACTION_CONFIG[lastAction].zeroLabel}`}
-            </span>
-          )}
+          </span>
           <button
             onClick={onDismissResult}
-            className="text-xs text-faint hover:text-muted transition-colors flex-shrink-0"
+            className="text-white/80 hover:text-white hover:bg-white/20 rounded p-0.5 transition-colors flex-shrink-0"
             aria-label="Dismiss"
           >
-            ✕
+            <X size={12} strokeWidth={2} />
           </button>
         </div>
       )}
@@ -125,7 +238,7 @@ function BulkActionBar({
   );
 }
 
-// ── Table ──────────────────────────────────────────────────────────────────────
+// ── Table ─────────────────────────────────────────────────────────────────────
 
 export function AdminProjectsTable({
   projects,
@@ -138,12 +251,9 @@ export function AdminProjectsTable({
   const [result, setResult]         = useState<BulkActionResult | null>(null);
   const [lastAction, setLastAction] = useState<BulkAction | null>(null);
 
-  // Clear selection (and stale action context) when the project list changes
-  // (tab navigation or external data refresh). Do NOT clear result here — it
-  // would wipe the success/skip message immediately after router.refresh()
-  // resolves with a new projects array reference, before the admin reads it.
-  // Result is cleared only by: starting a new action, clearing selection, or
-  // the user dismissing it.
+  // Clear selection when project list changes (tab nav or refresh).
+  // Do NOT clear result — it would wipe the success message immediately
+  // after router.refresh() returns.
   useEffect(() => {
     setSelectedIds(new Set());
     setLastAction(null);
@@ -164,9 +274,6 @@ export function AdminProjectsTable({
 
   const handleAction = (action: BulkAction) => {
     const ids = Array.from(selectedIds);
-    // Clear any stale result immediately so the bar doesn't briefly show a
-    // previous action's result re-labeled with the new action's terminology
-    // while the transition is in flight.
     setLastAction(action);
     setResult(null);
     startTransition(async () => {
@@ -175,9 +282,8 @@ export function AdminProjectsTable({
         : await bulkMarkInvoiceSent(ids);
       setResult(res);
       if (!res.error && res.updated > 0) {
-        // On partial success: deselect only the rows that were updated —
-        // keep only the skipped rows selected so the admin can see exactly
-        // which ones didn't apply and act on them individually.
+        // Partial success: keep only the skipped rows selected so the admin
+        // can see exactly which ones didn't apply.
         if (res.skipped.length === 0) {
           setSelectedIds(new Set());
         } else {
@@ -191,125 +297,171 @@ export function AdminProjectsTable({
   if (projects.length === 0) {
     return (
       <div
-        className="bg-card rounded-xl px-6 py-16 text-center"
-        style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
+        className="rounded-lg bg-white border px-6 py-16 text-center"
+        style={{ borderColor: "#E5E7EB" }}
       >
-        <p className="text-sm text-muted">No projects in this category.</p>
+        <p className="text-[14px] text-[#6B7280]">No projects in this category.</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="bg-card rounded-xl overflow-hidden"
-      style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
-    >
-      {/* Bulk action bar */}
+    <div className="space-y-3">
+      {/* Bulk action bar — separate floating element above the table */}
       <BulkActionBar
         selected={selectedIds}
         onAction={handleAction}
-        onClear={() => { setSelectedIds(new Set()); setResult(null); setLastAction(null); /* explicit clear: wipe result too */ }}
+        onClear={() => { setSelectedIds(new Set()); setResult(null); setLastAction(null); }}
         isPending={isPending}
         result={result}
         lastAction={lastAction}
         onDismissResult={() => setResult(null)}
       />
 
-      {/* Table header */}
-      <div className={`grid ${COLS} gap-4 px-5 py-3 bg-canvas items-center`}>
-        <input
-          type="checkbox"
-          checked={allSelected}
-          ref={(el) => { if (el) el.indeterminate = someSelected; }}
-          onChange={toggleAll}
-          className="w-3.5 h-3.5 rounded accent-primary cursor-pointer"
-          aria-label="Select all projects"
-          title={allSelected ? "Deselect all" : "Select all"}
-        />
-        <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Project</span>
-        <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Client · Authority</span>
-        <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Status</span>
-        <span className="text-[11px] font-semibold text-muted uppercase tracking-wider hidden lg:block">Designer</span>
-        <span className="text-[11px] font-semibold text-muted uppercase tracking-wider hidden lg:block">Submitted</span>
-      </div>
+      {/* Table container */}
+      <div
+        className="rounded-lg bg-white border overflow-hidden"
+        style={{ borderColor: "#E5E7EB" }}
+      >
+        {/* Header row */}
+        <div
+          className={`grid gap-4 items-center px-4 ${GRID_CLASSES}`}
+          style={{
+            background: "#F9FAFB",
+            height: 40,
+            borderBottom: "1px solid #E5E7EB",
+          }}
+        >
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={toggleAll}
+            label={allSelected ? "Deselect all" : "Select all"}
+          />
+          <div className="hidden md:block">
+            <HeaderCell label="Job #" sortable />
+          </div>
+          <HeaderCell label="Job Name" />
+          <div className="hidden lg:block">
+            <HeaderCell label="Jurisdiction" sortable />
+          </div>
+          <div className="hidden md:block">
+            <HeaderCell label="Company" sortable />
+          </div>
+          <div className="hidden lg:block">
+            <HeaderCell label="Designer" sortable />
+          </div>
+          <HeaderCell label="Status" sortable />
+          <div className="hidden lg:block">
+            <HeaderCell label="Date" sortable align="right" />
+          </div>
+        </div>
 
-      {/* Rows */}
-      <div className="divide-y divide-surface">
-        {projects.map((p) => {
-          const isSelected = selectedIds.has(p.id);
-          return (
-            <div
-              key={p.id}
-              className={`grid ${COLS} gap-4 px-5 items-center transition-colors ${
-                isSelected ? "bg-blue-50/60" : "hover:bg-surface"
-              }`}
-            >
-              {/* Checkbox cell — does NOT navigate */}
-              <div className="flex items-center justify-center py-3.5">
-                <input
-                  type="checkbox"
+        {/* Data rows */}
+        <div>
+          {projects.map((p) => {
+            const isSelected = selectedIds.has(p.id);
+            // NOTE: alert function is still typed on legacy ProjectStatus —
+            // see src/lib/alerts/submissionAlerts.ts header comment for why
+            // this single site continues to read p.status.
+            const alert = computeSubmissionAlert(p.status, p.updated_at);
+            const jurisdiction = p.county ? `${p.county} County` : p.authority_type ?? "—";
+
+            return (
+              <div
+                key={p.id}
+                className={[
+                  "grid gap-4 items-center px-4 transition-colors",
+                  GRID_CLASSES,
+                  isSelected ? "bg-[#EFF6FF]" : "hover:bg-[#F9FAFB]",
+                ].join(" ")}
+                style={{
+                  minHeight: 44,
+                  borderBottom: "1px solid #F3F4F6",
+                }}
+              >
+                {/* Checkbox — does NOT navigate */}
+                <Checkbox
                   checked={isSelected}
                   onChange={() => toggleId(p.id)}
-                  className="w-3.5 h-3.5 rounded accent-primary cursor-pointer"
-                  aria-label={`Select ${p.job_name}`}
+                  label={`Select ${p.job_name}`}
                 />
-              </div>
 
-              {/* Data columns — clicking navigates */}
-              <Link
-                href={`/admin/projects/${p.id}`}
-                className="col-span-5 grid gap-4 py-3.5 items-center group"
-                style={{ gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr" }}
-              >
-                {/* Job info */}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink truncate group-hover:text-primary transition-colors">
-                    {p.job_name}
-                  </p>
-                  <p className="text-xs text-muted font-mono mt-0.5">{p.job_number}</p>
-                </div>
+                {/* Job # */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="hidden md:block font-mono text-[12px] text-[#6B7280] truncate"
+                >
+                  {p.job_number}
+                </Link>
 
-                {/* Client · Authority */}
-                <div className="min-w-0">
-                  <p className="text-sm text-ink truncate">{p.company_name ?? "—"}</p>
-                  <p className="text-xs text-muted truncate">
-                    {p.county ? `${p.county} County` : p.authority_type ?? "—"}
-                  </p>
-                </div>
+                {/* Job Name */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="text-[14px] text-[#111827] truncate hover:text-[#1565C0] transition-colors"
+                >
+                  {p.job_name}
+                </Link>
 
-                {/* Status + optional alert tag */}
-                <div className="space-y-1">
-                  <ProjectStatusBadge status={p.unified_status} />
-                  {(() => {
-                    const alert = computeSubmissionAlert(p.status, p.updated_at);
-                    return alert ? (
-                      <p className={`text-[10px] font-semibold leading-none ${ALERT_SEVERITY_TEXT[alert.severity]}`}>
-                        ⚠ {alert.label}
-                      </p>
-                    ) : null;
-                  })()}
-                </div>
+                {/* Jurisdiction */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="hidden lg:block text-[14px] text-[#374151] truncate"
+                >
+                  {jurisdiction}
+                </Link>
+
+                {/* Company */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="hidden md:block text-[14px] text-[#374151] truncate"
+                >
+                  {p.company_name ?? "—"}
+                </Link>
 
                 {/* Designer */}
-                <div className="hidden lg:block">
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="hidden lg:flex items-center gap-2 min-w-0"
+                >
                   {p.assigned_designer_name ? (
-                    <div className="flex items-center gap-2">
-                      <UserAvatar displayName={p.assigned_designer_name} />
-                      <span className="text-sm text-dim truncate">{p.assigned_designer_name}</span>
-                    </div>
+                    <>
+                      <DesignerAvatar name={p.assigned_designer_name} />
+                      <span className="text-[13px] text-[#374151] truncate">
+                        {p.assigned_designer_name}
+                      </span>
+                    </>
                   ) : (
-                    <span className="text-sm text-faint">—</span>
+                    <span className="text-[14px] text-[#9CA3AF]">—</span>
                   )}
-                </div>
+                </Link>
 
-                {/* Date */}
-                <div className="hidden lg:block">
-                  <span className="text-xs text-muted">{formatDate(p.created_at)}</span>
-                </div>
-              </Link>
-            </div>
-          );
-        })}
+                {/* Status (+ optional alert tag) */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="flex flex-col items-start justify-center gap-1 min-w-0 py-2"
+                >
+                  <ProjectStatusBadge status={p.unified_status} />
+                  {alert && (
+                    <span
+                      className={`text-[10px] font-semibold leading-none ${ALERT_SEVERITY_TEXT[alert.severity]}`}
+                    >
+                      ⚠ {alert.label}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Date — right-aligned */}
+                <Link
+                  href={`/admin/projects/${p.id}`}
+                  className="hidden lg:block text-[12px] text-[#6B7280] text-right"
+                >
+                  {formatDate(p.created_at)}
+                </Link>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

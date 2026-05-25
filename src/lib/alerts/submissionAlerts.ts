@@ -40,6 +40,12 @@ function daysSince(dateStr: string | null): number {
  * Derives a single submission-pipeline alert for a project, or null if none.
  * Uses updated_at as the best available proxy for time-in-current-status.
  * Touching any field on the project resets the aging clock — acceptable for v1.
+ *
+ * NOTE: Still typed against legacy ProjectStatus because the alert kinds rely
+ * on sub-state precision (e.g. authority_action_needed) that UnifiedProjectStatus
+ * collapses into broader buckets. Migrating to unified would lose the high-
+ * severity authority-action alert. Revisit when the legacy projects.status
+ * column is dropped.
  */
 export function computeSubmissionAlert(
   status: ProjectStatus,
