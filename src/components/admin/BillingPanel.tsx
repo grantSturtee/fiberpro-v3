@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { Pencil, Lock } from "lucide-react";
 import type { InvoiceStatus } from "@/types/invoice";
 import type { PricingResolution } from "@/lib/pricing/types";
 import type { InvoiceActionState } from "@/app/(admin)/admin/invoices/actions";
@@ -71,19 +72,19 @@ const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
 };
 
 const INVOICE_STATUS_COLOR: Record<InvoiceStatus, string> = {
-  draft:          "bg-blue-50 text-blue-700",
-  sent:           "bg-blue-100 text-blue-800",
-  partially_paid: "bg-amber-50 text-amber-800",
-  paid:           "bg-emerald-100 text-emerald-800",
-  void:           "bg-red-50 text-red-700",
-  hold:           "bg-red-50 text-red-700",
+  draft:          "bg-[#E8F0FE] text-[#1565C0]",
+  sent:           "bg-[#EFF6FF] text-[#1565C0]",
+  partially_paid: "bg-[#FFFBEB] text-[#D97706]",
+  paid:           "bg-[#F0FDF4] text-[#16A34A]",
+  void:           "bg-[#FEF2F2] text-[#DC2626]",
+  hold:           "bg-[#FEF2F2] text-[#DC2626]",
 };
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">
+    <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">
       {children}
     </p>
   );
@@ -97,7 +98,7 @@ function SubmitBtn({ label, pendingLabel, className }: {
     <button
       type="submit"
       disabled={pending}
-      className={`px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors ${className ?? "bg-primary text-white hover:bg-primary/90"}`}
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors ${className ?? "bg-[#1565C0] text-white hover:bg-[#1251A3]"}`}
     >
       {pending ? (pendingLabel ?? "Saving…") : label}
     </button>
@@ -133,8 +134,8 @@ function InvoiceActionForm({
         pendingLabel={pendingLabel}
         className={buttonClassName}
       />
-      {state.error   && <p className="text-[11px] text-red-600">{state.error}</p>}
-      {state.success && <p className="text-[11px] text-green-700">{state.success}</p>}
+      {state.error   && <p className="text-[11px] text-[#DC2626]">{state.error}</p>}
+      {state.success && <p className="text-[11px] text-[#16A34A]">{state.success}</p>}
     </form>
   );
 }
@@ -181,10 +182,8 @@ function orderInvoicesForDisplay(invoices: InvoiceWithItems[]): InvoiceWithItems
 
 function EditableBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700">
-      <svg width="9" height="9" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      </svg>
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#E8F0FE] text-[#1565C0]">
+      <Pencil size={12} strokeWidth={1.5} />
       Editable
     </span>
   );
@@ -192,11 +191,8 @@ function EditableBadge() {
 
 function FrozenBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700">
-      <svg width="9" height="9" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <rect x="4" y="7" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M6 7V5a2 2 0 014 0v2" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#F0FDF4] text-[#16A34A]">
+      <Lock size={12} strokeWidth={1.5} />
       Frozen PDF
     </span>
   );
@@ -217,10 +213,10 @@ function InvoiceCard({
   const previewHref  = `/api/invoices/${invoice.id}/preview`;
   const downloadHref = `/api/invoices/${invoice.id}/pdf`;
   const linkCls =
-    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-surface text-dim hover:bg-wash hover:text-ink border border-rule transition-colors";
+    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white text-[#374151] hover:bg-[#F9FAFB] border border-[#E5E7EB] transition-colors";
 
   const inputCls =
-    "w-full text-sm border border-rule rounded-md px-2 py-1.5 bg-background text-ink focus:outline-none focus:ring-1 focus:ring-primary";
+    "w-full text-sm border border-[#D1D5DB] rounded-md px-2 py-1.5 bg-white text-[#111827] focus:outline-none focus:border-[#1565C0] focus:ring-2 focus:ring-[#EFF6FF]";
 
   // Slight visual emphasis: non-void cards get a 2px primary border. Void cards
   // stay subdued. Supplementals are inset and get a left rail to indicate nesting.
@@ -228,9 +224,9 @@ function InvoiceCard({
   const containerCls = [
     "rounded-lg p-4 space-y-3",
     isVoid
-      ? "border border-rule bg-canvas opacity-90"
-      : "border-2 border-primary/30 bg-canvas shadow-sm",
-    isSupplemental ? "ml-6 border-l-4 border-l-blue-300" : "",
+      ? "border border-[#E5E7EB] bg-[#F8F9FB] opacity-90"
+      : "border-2 border-[#1565C0]/30 bg-white",
+    isSupplemental ? "ml-6 border-l-4 border-l-[#93C5FD]" : "",
   ].join(" ");
 
   return (
@@ -238,7 +234,7 @@ function InvoiceCard({
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-mono font-semibold text-ink">{invoice.invoice_number}</p>
+          <p className="text-sm font-mono font-semibold text-[#111827]">{invoice.invoice_number}</p>
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusColor}`}
           >
@@ -250,9 +246,9 @@ function InvoiceCard({
             invoice.status === "paid") && <FrozenBadge />}
         </div>
         <div className="text-right">
-          <p className="text-base font-semibold text-ink">{fmt(invoice.total_amount)}</p>
+          <p className="text-base font-semibold text-[#111827]">{fmt(invoice.total_amount)}</p>
           {invoice.discount_amount > 0 && (
-            <p className="text-[11px] text-muted">
+            <p className="text-[11px] text-[#6B7280]">
               Subtotal {fmt(invoice.subtotal)} − {fmt(invoice.discount_amount)} discount
             </p>
           )}
@@ -260,12 +256,12 @@ function InvoiceCard({
       </div>
 
       {/* Meta line */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#6B7280]">
         <span>Date: {fmtDate(invoice.invoice_date)}</span>
         {invoice.due_date && <span>Due {fmtDate(invoice.due_date)}</span>}
         {invoice.sent_at && <span>Sent {fmtDate(invoice.sent_at)}</span>}
         {invoice.paid_at && (
-          <span className="text-emerald-700">Paid {fmtDate(invoice.paid_at)}</span>
+          <span className="text-[#16A34A]">Paid {fmtDate(invoice.paid_at)}</span>
         )}
         {invoice.recipient_email && (
           <span>
@@ -276,16 +272,16 @@ function InvoiceCard({
 
       {/* Outstanding balance — prominent for partially_paid */}
       {invoice.status === "partially_paid" && invoice.paid_amount != null && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+        <div className="bg-[#FFFBEB] border border-[#FCD34D] rounded-md px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-[11px] font-semibold text-amber-900 uppercase tracking-wider">
+            <p className="text-[11px] font-semibold text-[#92400E] uppercase tracking-wider">
               Outstanding
             </p>
-            <p className="text-lg font-bold text-amber-900 leading-none">
+            <p className="text-lg font-bold text-[#92400E] leading-none">
               {fmt(invoice.total_amount - invoice.paid_amount)}
             </p>
           </div>
-          <p className="text-[11px] text-amber-800">
+          <p className="text-[11px] text-[#92400E]">
             Paid {fmt(invoice.paid_amount)} of {fmt(invoice.total_amount)}
           </p>
         </div>
@@ -293,7 +289,7 @@ function InvoiceCard({
 
       {/* Void info */}
       {invoice.status === "void" && (
-        <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 text-xs text-red-800">
+        <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-md px-3 py-2 text-xs text-[#991B1B]">
           Voided{invoice.voided_at ? ` ${fmtDate(invoice.voided_at)}` : ""}
           {invoice.voided_reason ? ` — ${invoice.voided_reason}` : ""}
         </div>
@@ -337,7 +333,7 @@ function InvoiceCard({
       {/* Snapshot + audit — collapsed by default. Always available for any
           invoice that has been persisted to the new system (drafts included). */}
       <details className="text-xs">
-        <summary className="cursor-pointer text-muted hover:text-ink py-1">
+        <summary className="cursor-pointer text-[#6B7280] hover:text-[#111827] py-1">
           Snapshot &amp; audit details
         </summary>
         <div className="mt-2 space-y-2">
@@ -379,7 +375,7 @@ function InvoiceCard({
                   invoiceId={invoice.id}
                   buttonLabel="Delete Draft"
                   pendingLabel="Deleting…"
-                  buttonClassName="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-xs px-2 py-1 rounded"
+                  buttonClassName="bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] hover:bg-[#FEE2E2] text-xs px-2 py-1 rounded"
                 />
               </div>
             </div>
@@ -394,8 +390,8 @@ function InvoiceCard({
           </a>
 
           {/* Mark Partially Paid */}
-          <details className="rounded-md border border-rule bg-canvas px-3 py-2 text-xs">
-            <summary className="cursor-pointer font-semibold text-ink">
+          <details className="rounded-md border border-[#E5E7EB] bg-[#F8F9FB] px-3 py-2 text-xs">
+            <summary className="cursor-pointer font-semibold text-[#111827]">
               Mark Partially Paid
             </summary>
             <div className="mt-2">
@@ -404,7 +400,7 @@ function InvoiceCard({
                 invoiceId={invoice.id}
                 buttonLabel="Record Partial Payment"
                 pendingLabel="Recording…"
-                buttonClassName="bg-amber-600 text-white hover:bg-amber-700"
+                buttonClassName="bg-[#D97706] text-white hover:bg-[#B45309]"
               >
                 <div>
                   <Label>Amount Paid ($)</Label>
@@ -428,19 +424,19 @@ function InvoiceCard({
             invoiceId={invoice.id}
             buttonLabel="Mark Paid"
             pendingLabel="Marking…"
-            buttonClassName="bg-emerald-600 text-white hover:bg-emerald-700"
+            buttonClassName="bg-[#16A34A] text-white hover:bg-[#15803D]"
           />
 
           {/* Void */}
-          <details className="rounded-md border border-rule bg-canvas px-3 py-2 text-xs">
-            <summary className="cursor-pointer text-red-700 font-semibold">Void Invoice</summary>
+          <details className="rounded-md border border-[#E5E7EB] bg-[#F8F9FB] px-3 py-2 text-xs">
+            <summary className="cursor-pointer text-[#DC2626] font-semibold">Void Invoice</summary>
             <div className="mt-2">
               <InvoiceActionForm
                 action={invoiceActions.voidInvoice}
                 invoiceId={invoice.id}
                 buttonLabel="Confirm Void"
                 pendingLabel="Voiding…"
-                buttonClassName="bg-red-600 text-white hover:bg-red-700"
+                buttonClassName="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
               >
                 <input
                   name="voided_reason"
@@ -464,17 +460,17 @@ function InvoiceCard({
             invoiceId={invoice.id}
             buttonLabel="Mark Paid"
             pendingLabel="Marking…"
-            buttonClassName="bg-emerald-600 text-white hover:bg-emerald-700"
+            buttonClassName="bg-[#16A34A] text-white hover:bg-[#15803D]"
           />
-          <details className="rounded-md border border-rule bg-canvas px-3 py-2 text-xs">
-            <summary className="cursor-pointer text-red-700 font-semibold">Void Invoice</summary>
+          <details className="rounded-md border border-[#E5E7EB] bg-[#F8F9FB] px-3 py-2 text-xs">
+            <summary className="cursor-pointer text-[#DC2626] font-semibold">Void Invoice</summary>
             <div className="mt-2">
               <InvoiceActionForm
                 action={invoiceActions.voidInvoice}
                 invoiceId={invoice.id}
                 buttonLabel="Confirm Void"
                 pendingLabel="Voiding…"
-                buttonClassName="bg-red-600 text-white hover:bg-red-700"
+                buttonClassName="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
               >
                 <input
                   name="voided_reason"
@@ -493,15 +489,15 @@ function InvoiceCard({
           <a href={downloadHref} target="_blank" rel="noreferrer" className={linkCls}>
             Download PDF
           </a>
-          <details className="rounded-md border border-rule bg-canvas px-3 py-2 text-xs">
-            <summary className="cursor-pointer text-red-700 font-semibold">Void Invoice</summary>
+          <details className="rounded-md border border-[#E5E7EB] bg-[#F8F9FB] px-3 py-2 text-xs">
+            <summary className="cursor-pointer text-[#DC2626] font-semibold">Void Invoice</summary>
             <div className="mt-2">
               <InvoiceActionForm
                 action={invoiceActions.voidInvoice}
                 invoiceId={invoice.id}
                 buttonLabel="Confirm Void"
                 pendingLabel="Voiding…"
-                buttonClassName="bg-red-600 text-white hover:bg-red-700"
+                buttonClassName="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
               >
                 <input
                   name="voided_reason"
@@ -538,15 +534,15 @@ function InvoiceSection({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <p className="text-base font-semibold text-ink">Invoices</p>
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[#374151]">Invoices</h2>
           {nonVoidExists && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#F0FDF4] text-[#16A34A] uppercase tracking-wider">
               Active
             </span>
           )}
         </div>
         {nonVoidExists && (
-          <span className="text-[11px] text-muted">
+          <span className="text-[11px] text-[#6B7280]">
             Controls below manage this project&apos;s billing.
           </span>
         )}
