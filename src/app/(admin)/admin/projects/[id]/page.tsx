@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ProjectStatusBadge, BillingStatusBadge } from "@/components/ui/StatusBadge";
+import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { UploadSLDForm, DeleteSLDButton } from "@/components/admin/UploadSLDForm";
 import { AssignDesignerForm } from "@/components/admin/AssignDesignerForm";
@@ -944,7 +944,6 @@ export default async function AdminProjectDetailPage({
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-base font-semibold text-ink">{project.job_name}</h1>
             <ProjectStatusBadge status={project.unified_status} />
-            <BillingStatusBadge status={project.billing_status} />
           </div>
           <p className="text-xs text-muted mt-0.5">
             {project.company_name ?? "—"} · {authorityDisplay}

@@ -1,4 +1,4 @@
-import type { UnifiedProjectStatus, BillingStatus } from "@/types/domain";
+import type { UnifiedProjectStatus } from "@/types/domain";
 
 // ── Project Status Badge ──────────────────────────────────────────────────────
 // Single canonical badge over UnifiedProjectStatus. Each value has a fixed
@@ -42,45 +42,3 @@ export function ProjectStatusBadge({ status }: ProjectStatusBadgeProps) {
   );
 }
 
-// ── Billing Status Badge (deprecated) ─────────────────────────────────────────
-
-/**
- * @deprecated Use ProjectStatusBadge with UnifiedProjectStatus instead. The
- * billing dimension is folded into the unified status; pages that still read
- * legacy projects.billing_status should migrate to the unified column.
- * Kept temporarily while consuming pages migrate; will be removed in a
- * follow-up pass.
- */
-
-type BillingStatusConfig = {
-  label: string;
-  className: string;
-};
-
-const billingStatusMap: Record<BillingStatus, BillingStatusConfig> = {
-  not_ready:       { label: "Not Ready",        className: "bg-slate-100 text-slate-500" },
-  ready_to_invoice:{ label: "Ready to Invoice", className: "bg-emerald-50 text-emerald-700" },
-  draft_invoice:   { label: "Draft Invoice",    className: "bg-blue-50 text-blue-700" },
-  invoiced:        { label: "Invoiced",         className: "bg-blue-50 text-blue-800" },
-  partially_paid:  { label: "Partial",          className: "bg-amber-50 text-amber-700" },
-  paid:            { label: "Paid",             className: "bg-emerald-100 text-emerald-800" },
-  hold:            { label: "On Hold",          className: "bg-red-50 text-red-700" },
-};
-
-const billingBaseClass =
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium leading-none";
-
-type BillingStatusBadgeProps = {
-  status: BillingStatus;
-};
-
-export function BillingStatusBadge({ status }: BillingStatusBadgeProps) {
-  const config = billingStatusMap[status] ?? {
-    label: status,
-    className: "bg-slate-100 text-slate-600",
-  };
-
-  return (
-    <span className={`${billingBaseClass} ${config.className}`}>{config.label}</span>
-  );
-}
