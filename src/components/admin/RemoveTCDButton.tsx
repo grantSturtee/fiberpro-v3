@@ -10,7 +10,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="text-xs text-red-500 hover:underline disabled:opacity-50 flex-shrink-0"
+      className="text-xs text-[#DC2626] hover:underline disabled:opacity-50 flex-shrink-0"
     >
       {pending ? "Removing…" : "Remove"}
     </button>

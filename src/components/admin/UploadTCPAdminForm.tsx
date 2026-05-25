@@ -44,12 +44,11 @@ export function UploadTCPAdminForm({ projectId }: { projectId: string }) {
         type="button"
         disabled={isPending}
         onClick={() => inputRef.current?.click()}
-        className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white flex-shrink-0 disabled:opacity-60 transition-colors"
-        style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+        className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] flex-shrink-0 disabled:opacity-60 transition-colors"
       >
         {isPending ? "Uploading…" : "Upload TCP Sheet"}
       </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="text-xs text-[#DC2626]">{error}</span>}
     </div>
   );
 }

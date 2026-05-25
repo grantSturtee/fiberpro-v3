@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Download } from "lucide-react";
 
 /**
  * Download link with light click-cooldown protection.
@@ -29,14 +30,11 @@ export function FileDownloadLink({ href }: { href: string }) {
       title="Download file"
       className={
         cooldown
-          ? "text-faint flex-shrink-0 cursor-default"
-          : "text-muted hover:text-primary transition-colors flex-shrink-0"
+          ? "text-[#9CA3AF] flex-shrink-0 cursor-default"
+          : "text-[#6B7280] hover:text-[#1565C0] transition-colors flex-shrink-0"
       }
     >
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-      </svg>
+      <Download size={15} strokeWidth={1.5} />
     </a>
   );
 }

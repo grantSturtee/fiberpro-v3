@@ -17,14 +17,9 @@ function ComputeBtn({ highlighted }: { highlighted: boolean }) {
       disabled={pending}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
         highlighted
-          ? "text-white"
-          : "bg-surface text-dim hover:text-ink"
+          ? "bg-[#1565C0] hover:bg-[#1251A3] text-white"
+          : "bg-[#F8F9FB] text-[#6B7280] hover:text-[#111827] border border-[#E5E7EB]"
       }`}
-      style={
-        highlighted
-          ? { background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }
-          : { border: "1px solid #d4dde4" }
-      }
     >
       {pending ? (
         <>
@@ -55,11 +50,11 @@ export function RecomputeProjectButton({
       </form>
 
       {state.error && (
-        <p className="text-[11px] text-red-600">{state.error}</p>
+        <p className="text-[11px] text-[#DC2626]">{state.error}</p>
       )}
 
       {state.error === null && state.estimatedPrice !== undefined && (
-        <p className="text-[11px] text-emerald-700">
+        <p className="text-[11px] text-[#16A34A]">
           Updated — {state.jurisdictionMatched ? "jurisdiction matched" : "no jurisdiction match"},{" "}
           {state.estimatedPrice !== null
             ? `estimated $${state.estimatedPrice.toFixed(2)}`
