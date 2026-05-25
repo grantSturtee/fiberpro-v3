@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { CheckCircle2, Circle } from "lucide-react";
 import { markSetupComplete, type AdminActionState } from "@/app/(admin)/admin/projects/[id]/actions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -27,15 +28,9 @@ export type SetupChecklistProps = {
 
 function CheckIcon({ met }: { met: boolean }) {
   return met ? (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-shrink-0">
-      <circle cx="8" cy="8" r="7.5" fill="#ecfdf5" stroke="#6ee7b7" />
-      <path d="M5 8l2 2 4-4" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <CheckCircle2 size={14} strokeWidth={1.5} className="text-[#16A34A] flex-shrink-0" />
   ) : (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-shrink-0">
-      <circle cx="8" cy="8" r="7.5" fill="#fef3c7" stroke="#fcd34d" />
-      <circle cx="8" cy="8" r="2.5" fill="#d97706" />
-    </svg>
+    <Circle size={14} strokeWidth={1.5} className="text-[#9CA3AF] flex-shrink-0" />
   );
 }
 
@@ -52,9 +47,9 @@ function CheckRow({
     <div className="flex items-start gap-2.5">
       <span className="mt-0.5"><CheckIcon met={met} /></span>
       <div className="min-w-0">
-        <span className={`text-xs ${met ? "text-ink" : "text-ink"}`}>{label}</span>
+        <span className="text-xs text-[#111827]">{label}</span>
         {detail && (
-          <span className={`block text-[11px] mt-0.5 ${met ? "text-muted" : "text-amber-700"}`}>
+          <span className={`block text-[11px] mt-0.5 ${met ? "text-[#6B7280]" : "text-[#D97706]"}`}>
             {detail}
           </span>
         )}
@@ -69,8 +64,7 @@ function SubmitBtn() {
     <button
       type="submit"
       disabled={pending}
-      className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity disabled:opacity-50"
-      style={{ background: "linear-gradient(135deg, #059669 0%, #047857 100%)" }}
+      className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors disabled:opacity-50"
     >
       {pending ? "Checking…" : "Mark Setup Complete"}
     </button>
@@ -128,11 +122,8 @@ export function SetupChecklist({
     hasDesigner;
 
   return (
-    <div
-      className="rounded-lg px-3 py-3"
-      style={{ background: "#f8fafc", border: "1px solid #e3e9ec" }}
-    >
-      <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">
+    <div className="rounded-lg px-3 py-3 bg-[#F8F9FB] border border-[#E5E7EB]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6B7280] mb-2">
         Setup Readiness
       </p>
 
@@ -167,16 +158,16 @@ export function SetupChecklist({
           <input type="hidden" name="project_id" value={projectId} />
           <div className="flex items-center gap-2 flex-wrap">
             <SubmitBtn />
-            {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+            {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
           </div>
         </form>
       ) : (
         allMet ? (
-          <p className="text-xs text-emerald-700 font-medium">
+          <p className="text-xs text-[#16A34A] font-medium">
             All readiness items complete.
           </p>
         ) : (
-          <p className="text-xs text-muted">
+          <p className="text-xs text-[#6B7280]">
             Items above need attention before this project is fully set up.
           </p>
         )
