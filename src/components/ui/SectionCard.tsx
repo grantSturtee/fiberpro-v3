@@ -25,9 +25,9 @@ export function SectionCard({
         {(title || action) && (
           <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
             <div>
-              <h2 className="text-sm font-semibold text-ink">{title}</h2>
+              <h2 className="text-sm font-semibold text-[#111827]">{title}</h2>
               {description && (
-                <p className="mt-0.5 text-xs text-muted">{description}</p>
+                <p className="mt-0.5 text-xs text-[#6B7280]">{description}</p>
               )}
             </div>
             {action && (
@@ -45,15 +45,14 @@ export function SectionCard({
   return (
     <div
       id={id}
-      className={`bg-card rounded-xl ${className}`}
-      style={{ boxShadow: "0 1px 16px rgba(43,52,55,0.06)" }}
+      className={`bg-white border border-[#E5E7EB] rounded-lg ${className}`}
     >
       {(title || action) && (
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
           <div>
-            <h2 className="text-sm font-semibold text-ink">{title}</h2>
+            <h2 className="text-sm font-semibold text-[#111827]">{title}</h2>
             {description && (
-              <p className="mt-0.5 text-xs text-muted">{description}</p>
+              <p className="mt-0.5 text-xs text-[#6B7280]">{description}</p>
             )}
           </div>
           {action && (
