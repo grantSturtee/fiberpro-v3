@@ -25,8 +25,7 @@ function EnqueueBtn({ disabled }: { disabled: boolean }) {
     <button
       type="submit"
       disabled={disabled || pending}
-      className="flex-shrink-0 px-4 py-2 rounded-lg text-xs font-semibold text-white transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className="flex-shrink-0 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#1565C0] hover:bg-[#1251A3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {pending ? "Queueing…" : "Generate Package"}
     </button>
@@ -80,8 +79,8 @@ export function GeneratePackageButton({
 
   if (waitingForJob) {
     return (
-      <div className="flex items-center gap-2 text-sm text-amber-700">
-        <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
+      <div className="flex items-center gap-2 text-sm text-[#D97706]">
+        <span className="inline-block w-2 h-2 rounded-full bg-[#D97706]" />
         Job queued — waiting for n8n pickup.
       </div>
     );
@@ -96,10 +95,10 @@ export function GeneratePackageButton({
           <EnqueueBtn disabled={!canGenerate} />
         </form>
         {state.error && (
-          <p className="text-xs text-red-600 text-right">{state.error}</p>
+          <p className="text-xs text-[#DC2626] text-right">{state.error}</p>
         )}
         {state.warnings && state.warnings.map((w, i) => (
-          <p key={i} className="text-xs text-amber-700 text-right">{w}</p>
+          <p key={i} className="text-xs text-[#D97706] text-right">{w}</p>
         ))}
       </div>
     );
@@ -112,18 +111,18 @@ export function GeneratePackageButton({
         <CoverTemplatePicker templates={coverTemplates} />
         <div className="flex items-center justify-between gap-4">
           {disabledReason && !canGenerate && (
-            <p className="text-xs text-muted">{disabledReason}</p>
+            <p className="text-xs text-[#6B7280]">{disabledReason}</p>
           )}
           <EnqueueBtn disabled={!canGenerate} />
         </div>
       </form>
       {state.error && (
-        <p className="text-xs text-red-600">{state.error}</p>
+        <p className="text-xs text-[#DC2626]">{state.error}</p>
       )}
       {state.warnings && (
         <div className="space-y-1">
           {state.warnings.map((w, i) => (
-            <p key={i} className="text-xs text-amber-700">{w}</p>
+            <p key={i} className="text-xs text-[#D97706]">{w}</p>
           ))}
         </div>
       )}

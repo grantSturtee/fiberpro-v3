@@ -12,19 +12,19 @@ export function FileTypeBadge({ fileName }: { fileName: string }) {
   let color: string;
 
   if (label === "PDF") {
-    bg = "bg-red-50";
-    color = "text-red-600";
+    bg = "bg-[#DC2626]";
+    color = "text-white";
   } else if (label === "FILE") {
-    bg = "bg-[#f0f2f4]";
-    color = "text-muted";
+    bg = "bg-[#F3F4F6]";
+    color = "text-[#6B7280]";
   } else {
     // PNG, JPG, JPEG, WEBP, GIF, SVG
-    bg = "bg-blue-50";
-    color = "text-blue-600";
+    bg = "bg-[#EFF6FF]";
+    color = "text-[#1565C0]";
   }
 
   return (
-    <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${bg}`}>
+    <div className={`w-7 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${bg}`}>
       <span className={`text-[9px] font-bold tracking-tight ${color}`}>{label}</span>
     </div>
   );

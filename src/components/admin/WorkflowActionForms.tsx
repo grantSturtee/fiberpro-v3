@@ -16,8 +16,7 @@ function ApproveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full h-full px-4 py-2.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60 transition-colors"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className="w-full h-full px-4 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#1565C0] hover:bg-[#1251A3] disabled:opacity-60 transition-colors"
     >
       {pending ? "Approving…" : "Approve Design"}
     </button>
@@ -30,8 +29,7 @@ function RevisionSubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full h-full px-4 py-2.5 rounded-lg text-xs font-medium bg-canvas text-dim hover:bg-wash hover:text-ink disabled:opacity-60 transition-colors"
-      style={{ border: "1px solid #d4dde4" }}
+      className="w-full h-full px-4 py-2.5 rounded-lg text-xs font-medium bg-white text-[#374151] hover:bg-[#F9FAFB] hover:text-[#111827] border border-[#E5E7EB] disabled:opacity-60 transition-colors"
     >
       {pending ? "Sending…" : "Request Revisions"}
     </button>
@@ -61,14 +59,14 @@ export function DesignReviewPanel({ projectId }: { projectId: string }) {
           required
           form={revisionsFormId}
           placeholder="Describe what needs to be revised…"
-          className="flex-1 w-full text-xs text-ink bg-canvas rounded-lg px-3 py-2 resize-none outline-none"
-          style={{ border: "1px solid #d4dde4", minHeight: "90px" }}
+          className="flex-1 w-full text-xs text-[#111827] bg-white border border-[#D1D5DB] rounded-md px-3 py-2 resize-none focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF] placeholder:text-[#9CA3AF]"
+          style={{ minHeight: "90px" }}
         />
         {revisionsState.error && (
-          <p className="text-xs text-red-600">{revisionsState.error}</p>
+          <p className="text-xs text-[#DC2626]">{revisionsState.error}</p>
         )}
         {approveState.error && (
-          <p className="text-xs text-red-600">{approveState.error}</p>
+          <p className="text-xs text-[#DC2626]">{approveState.error}</p>
         )}
       </div>
 
@@ -100,7 +98,7 @@ export function ApproveDesignForm({ projectId }: { projectId: string }) {
     <form action={formAction}>
       <input type="hidden" name="project_id" value={projectId} />
       <ApproveButton />
-      {state.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
+      {state.error && <p className="mt-1 text-xs text-[#DC2626]">{state.error}</p>}
     </form>
   );
 }
@@ -117,11 +115,10 @@ export function RequestRevisionsForm({ projectId }: { projectId: string }) {
         required
         rows={2}
         placeholder="Describe what needs to be revised…"
-        className="w-full text-xs text-ink bg-canvas rounded-lg px-3 py-2 resize-none outline-none"
-        style={{ border: "1px solid #d4dde4" }}
+        className="w-full text-xs text-[#111827] bg-white border border-[#D1D5DB] rounded-md px-3 py-2 resize-none focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF] placeholder:text-[#9CA3AF]"
       />
       <RevisionSubmitButton />
-      {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
     </form>
   );
 }

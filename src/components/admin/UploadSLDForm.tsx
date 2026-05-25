@@ -2,6 +2,7 @@
 
 import { useState, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import {
   uploadSLD,
   deleteSLDFile,
@@ -46,18 +47,12 @@ export function DeleteSLDButton({
         disabled={isPending}
         title={`Delete ${fileName}`}
         aria-label={`Delete ${fileName}`}
-        className="p-1.5 rounded text-muted hover:text-red-600 disabled:opacity-50 transition-colors"
+        className="p-1.5 rounded text-[#6B7280] hover:text-[#DC2626] disabled:opacity-50 transition-colors"
       >
-        {/* Trash icon */}
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <path d="M2 4h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M3 4l.8 9.5a.5.5 0 0 0 .5.5h7.4a.5.5 0 0 0 .5-.5L13 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M6.5 7v4M9.5 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
+        <Trash2 size={14} strokeWidth={1.5} />
       </button>
       {error && (
-        <p className="absolute right-0 top-full mt-1 text-xs text-red-600 whitespace-nowrap z-10 bg-card px-2 py-1 rounded shadow-sm">
+        <p className="absolute right-0 top-full mt-1 text-xs text-[#DC2626] whitespace-nowrap z-10 bg-white border border-[#E5E7EB] px-2 py-1 rounded">
           {error}
         </p>
       )}
@@ -118,12 +113,11 @@ export function UploadSLDForm({ projectId }: { projectId: string }) {
         tabIndex={0}
         aria-label="Choose PDF files to upload"
         aria-disabled={isPending}
-        className="flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border-2 border-dashed transition-colors"
-        style={{
-          borderColor: isPending ? "#005bc1" : "#d4dde4",
-          background: isPending ? "rgba(0,91,193,0.04)" : undefined,
-          cursor: isPending ? "default" : "pointer",
-        }}
+        className={`flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border-2 border-dashed transition-colors ${
+          isPending
+            ? "border-[#1565C0] bg-[#EFF6FF] cursor-default"
+            : "border-[#E5E7EB] cursor-pointer"
+        }`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -139,23 +133,23 @@ export function UploadSLDForm({ projectId }: { projectId: string }) {
       >
         <div className="flex-1 min-w-0">
           {isPending ? (
-            <p className="text-sm text-primary font-medium">Uploading…</p>
+            <p className="text-sm text-[#1565C0] font-medium">Uploading…</p>
           ) : (
-            <p className="text-sm text-muted">Choose PDF(s) to upload</p>
+            <p className="text-sm text-[#6B7280]">Choose PDF(s) to upload</p>
           )}
-          <p className="text-xs text-faint mt-0.5">
+          <p className="text-xs text-[#9CA3AF] mt-0.5">
             {isPending ? "Please wait" : "PDF only · max 50 MB · multiple files OK"}
           </p>
         </div>
         {!isPending && (
-          <span className="text-xs font-medium text-primary flex-shrink-0">Browse</span>
+          <span className="text-xs font-medium text-[#1565C0] flex-shrink-0">Browse</span>
         )}
         {isPending && (
-          <span className="inline-block w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden />
+          <span className="inline-block w-3.5 h-3.5 border-2 border-[#1565C0] border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden />
         )}
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-[#DC2626]">{error}</p>}
     </div>
   );
 }

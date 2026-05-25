@@ -38,8 +38,7 @@ function OverrideSelect({
     <select
       name={name}
       defaultValue={encodeOverride(value)}
-      className="w-full text-xs text-ink bg-canvas rounded-lg px-2.5 py-1.5 outline-none"
-      style={{ border: "1px solid #d4dde4" }}
+      className="w-full text-xs text-[#111827] bg-white border border-[#D1D5DB] rounded-md px-2.5 py-1.5 focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF]"
     >
       <option value="inherit">Authority default ({defaultStr})</option>
       <option value="on">Required</option>
@@ -54,8 +53,7 @@ function SaveBtn() {
     <button
       type="submit"
       disabled={pending}
-      className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-opacity disabled:opacity-40"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className="text-xs px-3 py-1.5 rounded-lg font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] transition-colors disabled:opacity-40"
     >
       {pending ? "Saving…" : "Save overrides"}
     </button>
@@ -91,7 +89,7 @@ export function RequirementOverridesForm({
       <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 sm:grid-cols-3">
         {rows.map((row) => (
           <div key={row.name}>
-            <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">
+            <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1">
               {row.label}
             </p>
             <OverrideSelect
@@ -105,8 +103,8 @@ export function RequirementOverridesForm({
 
       <div className="flex items-center gap-3 pt-1">
         <SaveBtn />
-        {state.error && <p className="text-xs text-red-600">{state.error}</p>}
-        {state.success && <p className="text-xs text-emerald-600">Saved</p>}
+        {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
+        {state.success && <p className="text-xs text-[#16A34A]">Saved</p>}
       </div>
     </form>
   );
