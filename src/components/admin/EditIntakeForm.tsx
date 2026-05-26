@@ -8,6 +8,12 @@ import { updateIntakeDetails, type AdminActionState } from "@/app/(admin)/admin/
 import { formatDate, humanize } from "@/lib/utils/format";
 import { US_STATES } from "@/lib/constants/authorities";
 
+// ── Form input constants ──────────────────────────────────────────────────────
+
+const INPUT_CLS =
+  "border border-[#D1D5DB] rounded-md px-3 py-2 text-[14px] bg-white text-[#111827] focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF] placeholder:text-[#9CA3AF]";
+const INPUT_FULL = `${INPUT_CLS} w-full`;
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export type IntakeProject = {
@@ -40,8 +46,8 @@ export type IntakeProject = {
 function FieldPair({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm text-ink">{value || <span className="text-faint">—</span>}</p>
+      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm text-[#111827]">{value || <span className="text-[#9CA3AF]">—</span>}</p>
     </div>
   );
 }
@@ -49,14 +55,11 @@ function FieldPair({ label, value }: { label: string; value?: string | null }) {
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1">{label}</p>
       {children}
     </div>
   );
 }
-
-const inputCls = "w-full text-sm text-ink bg-canvas rounded-lg px-3 py-1.5 outline-none transition-colors";
-const inputStyle = { border: "1px solid #d4dde4" };
 
 // ── Save button — muted until dirty, matches AllowedStatesForm pattern ────────
 
@@ -67,12 +70,11 @@ function SaveButton({ isDirty }: { isDirty: boolean }) {
     <button
       type="submit"
       disabled={!active}
-      className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-[opacity]"
-      style={{
-        background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)",
-        opacity: active ? 1 : 0.35,
-        cursor: active ? "pointer" : "default",
-      }}
+      className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+        active
+          ? "bg-[#1565C0] hover:bg-[#1251A3] text-white cursor-pointer"
+          : "bg-[#E5E7EB] text-[#6B7280] cursor-default"
+      }`}
     >
       {pending ? "Saving…" : "Save"}
     </button>
@@ -165,7 +167,7 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
           <button
             type="button"
             onClick={() => { setEditing(true); setIsDirty(false); }}
-            className="text-xs text-primary hover:underline"
+            className="text-xs text-[#1565C0] hover:underline"
           >
             Edit
           </button>
@@ -187,8 +189,7 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
                   name="street_address"
                   defaultValue={project.street_address ?? ""}
                   placeholder="e.g. 123 Main St"
-                  className={`${inputCls} uppercase-input`}
-                  style={inputStyle}
+                  className={`${INPUT_FULL} uppercase-input`}
                 />
               </FormField>
             </div>
@@ -199,24 +200,23 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
                 name="zip_code"
                 defaultValue={project.zip_code ?? ""}
                 placeholder="e.g. 07601"
-                className={`${inputCls} uppercase-input`}
-                style={inputStyle}
+                className={`${INPUT_FULL} uppercase-input`}
               />
             </FormField>
 
             <FormField label="Client Job #">
-              <input type="text" name="job_number_client" defaultValue={project.job_number_client ?? ""} className={inputCls} style={inputStyle} />
+              <input type="text" name="job_number_client" defaultValue={project.job_number_client ?? ""} className={INPUT_FULL} />
             </FormField>
             <FormField label="Rhino PM">
-              <input type="text" name="rhino_pm" defaultValue={project.rhino_pm ?? ""} className={`${inputCls} uppercase-input`} style={inputStyle} />
+              <input type="text" name="rhino_pm" defaultValue={project.rhino_pm ?? ""} className={`${INPUT_FULL} uppercase-input`} />
             </FormField>
             <FormField label="Comcast Manager">
-              <input type="text" name="comcast_manager" defaultValue={project.comcast_manager ?? ""} className={`${inputCls} uppercase-input`} style={inputStyle} />
+              <input type="text" name="comcast_manager" defaultValue={project.comcast_manager ?? ""} className={`${INPUT_FULL} uppercase-input`} />
             </FormField>
 
             {/* Row 3 — plan type, authority, mileposts */}
             <FormField label="Type of Plan">
-              <select name="type_of_plan" defaultValue={project.type_of_plan ?? ""} className={inputCls} style={inputStyle}>
+              <select name="type_of_plan" defaultValue={project.type_of_plan ?? ""} className={INPUT_FULL}>
                 <option value="">— None —</option>
                 <option value="aerial">Aerial</option>
                 <option value="underground">Underground</option>
@@ -225,7 +225,7 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
               </select>
             </FormField>
             <FormField label="Authority">
-              <select name="authority_type" defaultValue={project.authority_type ?? ""} className={inputCls} style={inputStyle}>
+              <select name="authority_type" defaultValue={project.authority_type ?? ""} className={INPUT_FULL}>
                 <option value="">— None —</option>
                 <option value="county">County</option>
                 <option value="njdot">State (NJDOT)</option>
@@ -236,31 +236,29 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
 
             {/* Mileposts — compact two-input group in one grid cell */}
             <div>
-              <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">Mileposts</p>
+              <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1">Mileposts</p>
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   name="milepost_start"
                   defaultValue={project.milepost_start ?? ""}
                   placeholder="Start"
-                  className="w-full text-sm text-ink bg-canvas rounded-lg px-2.5 py-1.5 outline-none transition-colors uppercase-input"
-                  style={inputStyle}
+                  className={`${INPUT_FULL} uppercase-input`}
                 />
-                <span className="text-muted text-sm flex-shrink-0">–</span>
+                <span className="text-[#6B7280] text-sm flex-shrink-0">–</span>
                 <input
                   type="text"
                   name="milepost_end"
                   defaultValue={project.milepost_end ?? ""}
                   placeholder="End"
-                  className="w-full text-sm text-ink bg-canvas rounded-lg px-2.5 py-1.5 outline-none transition-colors uppercase-input"
-                  style={inputStyle}
+                  className={`${INPUT_FULL} uppercase-input`}
                 />
               </div>
             </div>
 
             {/* Row 4 — location */}
             <FormField label="State">
-              <select name="state" defaultValue={project.state ?? ""} className={inputCls} style={inputStyle}>
+              <select name="state" defaultValue={project.state ?? ""} className={INPUT_FULL}>
                 <option value="">— None —</option>
                 {US_STATES.map((s) => (
                   <option key={s.abbr} value={s.abbr}>{s.abbr} – {s.name}</option>
@@ -268,19 +266,19 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
               </select>
             </FormField>
             <FormField label="County">
-              <input type="text" name="county" defaultValue={project.county ?? ""} className={`${inputCls} uppercase-input`} style={inputStyle} />
+              <input type="text" name="county" defaultValue={project.county ?? ""} className={`${INPUT_FULL} uppercase-input`} />
             </FormField>
             {/* City / Municipality — optional */}
             <FormField label="City / Municipality">
-              <input type="text" name="city" defaultValue={project.city ?? ""} className={`${inputCls} uppercase-input`} style={inputStyle} />
+              <input type="text" name="city" defaultValue={project.city ?? ""} className={`${INPUT_FULL} uppercase-input`} />
             </FormField>
 
             {/* Row 5 — dates */}
             <FormField label="Submitted to GRANTED">
-              <input type="date" name="submitted_to_fiberpro" defaultValue={project.submitted_to_fiberpro ?? ""} className={inputCls} style={inputStyle} />
+              <input type="date" name="submitted_to_fiberpro" defaultValue={project.submitted_to_fiberpro ?? ""} className={INPUT_FULL} />
             </FormField>
             <FormField label="Requested Approval">
-              <input type="date" name="requested_approval_date" defaultValue={project.requested_approval_date ?? ""} className={inputCls} style={inputStyle} />
+              <input type="date" name="requested_approval_date" defaultValue={project.requested_approval_date ?? ""} className={INPUT_FULL} />
             </FormField>
           </div>
 
@@ -291,8 +289,8 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
               on edit we leave them alone unless the admin explicitly changes
               them here.
           */}
-          <details className="mt-2 pt-3" style={{ borderTop: "1px dashed #e3e9ec" }}>
-            <summary className="cursor-pointer text-[11px] font-medium text-muted uppercase tracking-wider">
+          <details className="mt-2 pt-3 border-t border-dashed border-[#E5E7EB]">
+            <summary className="cursor-pointer text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
               Legacy fields (Job Name / Job Address)
             </summary>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
@@ -303,8 +301,7 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
                     name="job_name"
                     defaultValue={project.job_name}
                     required
-                    className={`${inputCls} uppercase-input`}
-                    style={inputStyle}
+                    className={`${INPUT_FULL} uppercase-input`}
                   />
                 </FormField>
               </div>
@@ -315,8 +312,7 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
                     name="job_address"
                     defaultValue={project.job_address ?? ""}
                     placeholder="e.g. 123 Main St, Hackensack NJ 07601"
-                    className={`${inputCls} uppercase-input`}
-                    style={inputStyle}
+                    className={`${INPUT_FULL} uppercase-input`}
                   />
                 </FormField>
               </div>
@@ -329,18 +325,18 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="text-xs text-muted hover:text-ink transition-colors"
+              className="text-xs text-[#6B7280] hover:text-[#111827] transition-colors"
             >
               Cancel
             </button>
-            {state.error && <p className="text-xs text-red-600 ml-2">{state.error}</p>}
+            {state.error && <p className="text-xs text-[#DC2626] ml-2">{state.error}</p>}
           </div>
 
           {/* Project Notes — read-only in edit mode, positioned below actions */}
           {project.notes && (
-            <div className="mt-3 pt-3" style={{ borderTop: "1px solid #e3e9ec" }}>
-              <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Project Notes</p>
-              <p className="text-sm text-ink">{project.notes}</p>
+            <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+              <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Project Notes</p>
+              <p className="text-sm text-[#111827]">{project.notes}</p>
             </div>
           )}
         </form>
@@ -363,14 +359,14 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
 
           {/* Location — leads with structured address; falls back to legacy
               job_address when no street_address has been entered yet. */}
-          <div className="mt-4 pt-4 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3" style={{ borderTop: "1px solid #e3e9ec" }}>
+          <div className="mt-4 pt-4 border-t border-[#E5E7EB] grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
             <div className="col-span-2 sm:col-span-3">
               {project.street_address ? (
                 <div>
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Address</p>
-                  <p className="text-sm text-ink">{project.street_address}</p>
+                  <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Address</p>
+                  <p className="text-sm text-[#111827]">{project.street_address}</p>
                   {formatCityStateZip(project.city, project.state, project.zip_code) && (
-                    <p className="text-sm text-ink">
+                    <p className="text-sm text-[#111827]">
                       {formatCityStateZip(project.city, project.state, project.zip_code)}
                     </p>
                   )}
@@ -385,22 +381,22 @@ export function EditIntakeForm({ project }: { project: IntakeProject }) {
           </div>
 
           {/* Timeline */}
-          <div className="mt-4 pt-4 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3" style={{ borderTop: "1px solid #e3e9ec" }}>
+          <div className="mt-4 pt-4 border-t border-[#E5E7EB] grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
             <FieldPair label="Submitted to GRANTED" value={formatDate(project.submitted_to_fiberpro)} />
             <FieldPair label="Requested Approval"    value={formatDate(project.requested_approval_date)} />
           </div>
 
           {/* Account identifiers */}
-          <div className="mt-4 pt-4 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3" style={{ borderTop: "1px solid #e3e9ec" }}>
+          <div className="mt-4 pt-4 border-t border-[#E5E7EB] grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
             <FieldPair label="Client Job #"    value={project.job_number_client} />
             <FieldPair label="Rhino PM"        value={project.rhino_pm} />
             <FieldPair label="Comcast Manager" value={project.comcast_manager} />
           </div>
 
           {project.notes && (
-            <div className="mt-4 pt-4" style={{ borderTop: "1px solid #e3e9ec" }}>
-              <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Project Notes</p>
-              <p className="text-sm text-ink">{project.notes}</p>
+            <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
+              <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Project Notes</p>
+              <p className="text-sm text-[#111827]">{project.notes}</p>
             </div>
           )}
         </>
