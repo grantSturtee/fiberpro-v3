@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useActionState } from "react";
+import { CheckCircle2, Upload } from "lucide-react";
 import { uploadManualPackage, type AdminActionState } from "@/app/(admin)/admin/projects/[id]/actions";
 
 export type SeparateOutputFile = {
@@ -61,17 +62,14 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
     if (!activeFile) return null;
     if (activeFile.source === "system_generated") {
       return (
-        <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">
+        <span className="text-[10px] font-semibold bg-[#F0FDF4] text-[#16A34A] rounded px-1.5 py-0.5">
           Generated
         </span>
       );
     }
     if (activeFile.source === "admin_upload") {
       return (
-        <span
-          className="text-[10px] font-semibold text-dim rounded px-1.5 py-0.5"
-          style={{ background: "#f3f4f6", border: "1px solid #e3e9ec" }}
-        >
+        <span className="text-[10px] font-semibold bg-[#EFF6FF] text-[#1565C0] rounded px-1.5 py-0.5">
           Uploaded
         </span>
       );
@@ -85,23 +83,22 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
       <div className="flex items-center gap-2.5 py-2.5">
         {/* Status dot */}
         <div
-          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: activeFile ? "#dcfce7" : "#f3f4f6" }}
+          className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+            activeFile ? "bg-[#F0FDF4]" : "bg-[#F3F4F6]"
+          }`}
         >
           {activeFile ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-              <path d="M2 5l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <CheckCircle2 size={14} strokeWidth={1.5} className="text-[#16A34A]" />
           ) : (
-            <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+            <span className="w-2 h-2 rounded-full bg-[#D1D5DB] block" />
           )}
         </div>
 
         {/* Name + required badge */}
         <div className="flex-1 flex items-center gap-2 min-w-0">
-          <p className="text-sm font-medium text-ink">{name}</p>
+          <p className="text-sm font-medium text-[#111827]">{name}</p>
           {required && (
-            <span className="text-[10px] font-semibold text-primary bg-primary-soft rounded px-1.5 py-0.5 flex-shrink-0">
+            <span className="text-[10px] font-semibold text-[#1565C0] bg-[#EFF6FF] rounded px-1.5 py-0.5 flex-shrink-0">
               Required
             </span>
           )}
@@ -110,7 +107,7 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
         {/* Right side: source badge + view + upload toggle */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {activeFile ? sourceBadge : (
-            <span className="text-xs text-muted">Not on file</span>
+            <span className="text-xs text-[#6B7280]">Not on file</span>
           )}
 
           {activeFile?.url && (
@@ -118,7 +115,7 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
               href={activeFile.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline"
+              className="text-xs text-[#1565C0] hover:underline"
             >
               View
             </a>
@@ -133,16 +130,11 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
             }}
             title={uploadOpen ? "Cancel upload" : `Upload ${name}`}
             aria-label={uploadOpen ? "Cancel upload" : `Upload ${name}`}
-            className="p-1 rounded transition-colors"
-            style={{ color: uploadOpen ? "#005bc1" : "#8a9ba4" }}
+            className={`p-1 rounded transition-colors ${
+              uploadOpen ? "text-[#1565C0]" : "text-[#9CA3AF] hover:text-[#1565C0]"
+            }`}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M8 2v9M5 5L8 2l3 3"
-                stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
-              />
-              <path d="M3 12h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <Upload size={14} strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -150,7 +142,7 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
       {/* Alternate source note */}
       {alternateFile && (
         <div className="ml-7 mb-1">
-          <p className="text-[11px] text-muted">
+          <p className="text-[11px] text-[#6B7280]">
             Also on file:{" "}
             <span className="font-medium">
               {alternateFile.source === "system_generated" ? "generated" : "uploaded"} version
@@ -162,14 +154,14 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
                   href={alternateFile.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-[#1565C0] hover:underline"
                 >
                   View
                 </a>
               </>
             )}
             {activeFile?.source === "admin_upload" && alternateFile.source === "system_generated" && (
-              <span className="text-faint ml-1">
+              <span className="text-[#9CA3AF] ml-1">
                 — regenerate package to refresh the generated version
               </span>
             )}
@@ -179,10 +171,7 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
 
       {/* Progressive upload panel */}
       {uploadOpen && (
-        <div
-          className="ml-7 mt-1 mb-2 p-3 rounded-lg space-y-2"
-          style={{ background: "#f8fafc", border: "1px solid #e3e9ec" }}
-        >
+        <div className="ml-7 mt-1 mb-2 p-3 rounded-lg space-y-2 bg-[#F8F9FB] border border-[#E5E7EB]">
           <form action={formAction} className="space-y-2">
             <input type="hidden" name="project_id" value={projectId} />
             <input type="hidden" name="category" value={category} />
@@ -204,11 +193,11 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
               role="button"
               tabIndex={0}
               aria-label="Choose a PDF file"
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border-2 border-dashed cursor-pointer transition-colors"
-              style={{
-                borderColor: pickedFileName ? "#005bc1" : "#d4dde4",
-                background: pickedFileName ? "rgba(0,91,193,0.04)" : "white",
-              }}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                pickedFileName
+                  ? "border-[#1565C0] bg-[#EFF6FF]"
+                  : "border-[#E5E7EB] bg-white hover:border-[#1565C0]/40 hover:bg-[#EFF6FF]"
+              }`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -223,20 +212,20 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
             >
               <div className="flex-1 min-w-0">
                 {pickedFileName ? (
-                  <p className="text-sm text-ink truncate font-medium">{pickedFileName}</p>
+                  <p className="text-sm text-[#111827] truncate font-medium">{pickedFileName}</p>
                 ) : (
-                  <p className="text-sm text-muted">Choose PDF</p>
+                  <p className="text-sm text-[#6B7280]">Choose PDF</p>
                 )}
-                <p className="text-xs text-faint mt-0.5">PDF only · max 50 MB</p>
+                <p className="text-xs text-[#9CA3AF] mt-0.5">PDF only · max 50 MB</p>
               </div>
-              <span className="text-xs font-medium text-primary flex-shrink-0">
+              <span className="text-xs font-medium text-[#1565C0] flex-shrink-0">
                 {pickedFileName ? "Change" : "Browse"}
               </span>
             </div>
 
             <div className="flex items-center justify-between gap-3">
               <div>
-                {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+                {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -245,15 +234,14 @@ export function SeparateOutputRow({ name, required, projectId, category, files }
                     setUploadOpen(false);
                     setPickedFileName(null);
                   }}
-                  className="text-xs text-muted hover:text-dim transition-colors"
+                  className="text-xs text-[#6B7280] hover:text-[#111827] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={pending || !pickedFileName}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50 transition-colors"
-                  style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] disabled:opacity-50 transition-colors"
                 >
                   {pending ? "Uploading…" : "Upload"}
                 </button>

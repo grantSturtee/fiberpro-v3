@@ -76,7 +76,7 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
       <button
         type="button"
         onClick={handleOpen}
-        className="text-xs font-medium text-primary hover:underline"
+        className="text-xs font-medium text-[#1565C0] hover:underline"
       >
         + Select from Library
       </button>
@@ -88,15 +88,15 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div
-            className="bg-card rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col"
-            style={{ maxHeight: "80vh" }}
+            className="bg-white rounded-xl w-full max-w-lg mx-4 flex flex-col"
+            style={{ maxHeight: "80vh", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-surface">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
               <div>
-                <h2 className="text-sm font-semibold text-ink">TCD Library</h2>
+                <h2 className="text-sm font-semibold text-[#111827]">TCD Library</h2>
                 {projectState && (
-                  <p className="text-xs text-muted mt-0.5">
+                  <p className="text-xs text-[#6B7280] mt-0.5">
                     Showing sheets for {projectState} + universal
                   </p>
                 )}
@@ -104,7 +104,7 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-muted hover:text-ink text-lg leading-none"
+                className="text-[#6B7280] hover:text-[#111827] text-lg leading-none"
               >
                 ×
               </button>
@@ -120,8 +120,8 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
                     onClick={() => setCategoryFilter(cat)}
                     className={`text-xs px-2.5 py-1 rounded-md border transition-colors capitalize ${
                       categoryFilter === cat
-                        ? "bg-ink text-white border-ink"
-                        : "border-surface text-dim hover:border-muted"
+                        ? "bg-[#1565C0] text-white border-[#1565C0]"
+                        : "bg-white text-[#6B7280] border-[#E5E7EB] hover:border-[#1565C0] hover:text-[#1565C0]"
                     }`}
                   >
                     {cat === "all" ? "All" : cat}
@@ -133,7 +133,7 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
             {/* List */}
             <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
               {visible.length === 0 ? (
-                <p className="text-sm text-muted py-4 text-center">
+                <p className="text-sm text-[#6B7280] py-4 text-center">
                   {library.filter((t) => !selectedIds.has(t.id)).length === 0
                     ? "All library items are already added to this project."
                     : "No TCD sheets match this filter."}
@@ -143,30 +143,32 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
                   <label
                     key={tcd.id}
                     className={`flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                      checked.has(tcd.id) ? "bg-primary/8 border border-primary/20" : "hover:bg-surface border border-transparent"
+                      checked.has(tcd.id)
+                        ? "bg-[#EFF6FF] border border-[#1565C0]/30"
+                        : "hover:bg-[#F8F9FB] border border-transparent"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 flex-shrink-0 accent-primary"
+                      className="mt-0.5 flex-shrink-0 accent-[#1565C0]"
                       checked={checked.has(tcd.id)}
                       onChange={() => toggle(tcd.id)}
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{tcd.code}</span>
+                        <span className="text-sm font-semibold text-[#111827]">{tcd.code}</span>
                         {tcd.category && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-muted capitalize">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[#6B7280] capitalize">
                             {tcd.category}
                           </span>
                         )}
                         {tcd.state && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FFFBEB] text-[#D97706]">
                             {tcd.state}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-dim mt-0.5">{tcd.description}</p>
+                      <p className="text-xs text-[#6B7280] mt-0.5">{tcd.description}</p>
                     </div>
                   </label>
                 ))
@@ -174,18 +176,18 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-4 border-t border-surface flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-t border-[#E5E7EB] flex items-center justify-between gap-3">
               <div>
-                {error && <p className="text-xs text-red-600">{error}</p>}
+                {error && <p className="text-xs text-[#DC2626]">{error}</p>}
                 {checked.size > 0 && !error && (
-                  <p className="text-xs text-muted">{checked.size} selected</p>
+                  <p className="text-xs text-[#6B7280]">{checked.size} selected</p>
                 )}
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-1.5 text-sm text-dim rounded-lg border border-surface hover:border-muted transition-colors"
+                  className="px-3 py-1.5 text-sm bg-white text-[#374151] rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] hover:text-[#111827] transition-colors"
                 >
                   Cancel
                 </button>
@@ -193,8 +195,7 @@ export function TcdLibraryModal({ projectId, projectState, library, selectedIds 
                   type="button"
                   onClick={handleSave}
                   disabled={isPending || checked.size === 0}
-                  className="px-4 py-1.5 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-opacity"
-                  style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+                  className="px-4 py-1.5 text-sm font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] rounded-lg disabled:opacity-50 transition-colors"
                 >
                   {isPending ? "Adding…" : `Add ${checked.size > 0 ? `${checked.size} ` : ""}Selected`}
                 </button>
