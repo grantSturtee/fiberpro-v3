@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Eye } from "lucide-react";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { UploadSLDForm, DeleteSLDButton } from "@/components/admin/UploadSLDForm";
@@ -983,18 +983,18 @@ export default async function AdminProjectDetailPage({
               description="Files submitted by the client with this request."
             >
               {intakeFiles.length === 0 ? (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-[#6B7280]">
                   No files submitted by the client. They may not have included attachments, or files are still pending.
                 </p>
               ) : (
-                <div className="divide-y divide-surface">
+                <div className="divide-y divide-[#E5E7EB]">
                   {intakeFiles.map((f) => (
                     <div key={f.id} className="flex items-center justify-between gap-4 py-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <FileTypeBadge fileName={f.file_name} />
                         <div className="min-w-0">
-                          <p className="text-sm text-ink truncate">{f.file_name}</p>
-                          <p className="text-xs text-muted">
+                          <p className="text-sm text-[#111827] truncate">{f.file_name}</p>
+                          <p className="text-xs text-[#6B7280]">
                             {FILE_CATEGORY_LABELS[f.file_category as keyof typeof FILE_CATEGORY_LABELS] ?? f.file_category}
                             {f.uploader_label ? ` · ${f.uploader_label}` : ""}
                             {" · "}
@@ -1008,12 +1008,12 @@ export default async function AdminProjectDetailPage({
                             href={downloadUrls[f.id]}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
+                            className="text-xs text-[#1565C0] hover:underline"
                           >
                             View
                           </a>
                         ) : (
-                          <span className="text-xs text-faint" title="This file type cannot be previewed in the browser">
+                          <span className="text-xs text-[#9CA3AF]" title="This file type cannot be previewed in the browser">
                             View
                           </span>
                         )}
@@ -1034,12 +1034,12 @@ export default async function AdminProjectDetailPage({
               description="Single-line diagram drawings received with this intake. Must be uploaded before the designer can begin."
             >
               {sldFiles.length === 0 && (
-                <p className="text-sm text-muted mb-4">
+                <p className="text-sm text-[#6B7280] mb-4">
                   No reference drawings uploaded yet. Upload the SLD sheets provided by the client before proceeding to Setup.
                 </p>
               )}
               {sldFiles.length > 0 && (
-                <div className="divide-y divide-surface mb-4">
+                <div className="divide-y divide-[#E5E7EB] mb-4">
                   {sldFiles.map((f) => {
                     const sldFile = f as { id: string; file_name: string; created_at: string; uploader_label?: string | null };
                     return (
@@ -1047,8 +1047,8 @@ export default async function AdminProjectDetailPage({
                         <div className="flex items-center gap-2.5 min-w-0">
                           <FileTypeBadge fileName={sldFile.file_name} />
                           <div className="min-w-0">
-                            <p className="text-sm text-ink truncate">{sldFile.file_name}</p>
-                            <p className="text-xs text-muted">
+                            <p className="text-sm text-[#111827] truncate">{sldFile.file_name}</p>
+                            <p className="text-xs text-[#6B7280]">
                               {sldFile.uploader_label ? `${sldFile.uploader_label} · ` : ""}
                               {formatDate(sldFile.created_at)}
                             </p>
@@ -1062,19 +1062,13 @@ export default async function AdminProjectDetailPage({
                               rel="noopener noreferrer"
                               title={`View ${sldFile.file_name}`}
                               aria-label={`View ${sldFile.file_name}`}
-                              className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+                              className="p-1.5 rounded text-[#6B7280] hover:text-[#1565C0] transition-colors"
                             >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
-                              </svg>
+                              <Eye size={14} strokeWidth={1.5} />
                             </a>
                           ) : (
-                            <span className="p-1.5 text-faint">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
-                              </svg>
+                            <span className="p-1.5 text-[#9CA3AF]">
+                              <Eye size={14} strokeWidth={1.5} />
                             </span>
                           )}
                           <DeleteSLDButton
@@ -1107,13 +1101,13 @@ export default async function AdminProjectDetailPage({
 
                 {/* Authority selector */}
                 <div>
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">
+                  <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">
                     Permitting Authority
                   </p>
                   {authorityProfiles.length === 0 ? (
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-[#6B7280]">
                       No authority profiles found.{" "}
-                      <Link href="/admin/settings/authorities" className="text-primary hover:underline">
+                      <Link href="/admin/settings/authorities" className="text-[#1565C0] hover:underline">
                         Add in Settings →
                       </Link>
                     </p>
@@ -1126,17 +1120,17 @@ export default async function AdminProjectDetailPage({
                     />
                   )}
                   {selectedAuthority && (
-                    <p className="mt-1.5 text-xs text-muted">
-                      <span className="text-ink font-medium">{selectedAuthority.name}</span>
+                    <p className="mt-1.5 text-xs text-[#6B7280]">
+                      <span className="text-[#111827] font-medium">{selectedAuthority.name}</span>
                       {" "}
-                      <span className="text-faint">({selectedAuthority.type})</span>
+                      <span className="text-[#9CA3AF]">({selectedAuthority.type})</span>
                     </p>
                   )}
                 </div>
 
                 {/* Package Template */}
-                <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">
+                <div className="border-t border-[#E5E7EB] pt-4">
+                  <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">
                     Package Template
                   </p>
                   <BlueprintSelector
@@ -1166,14 +1160,14 @@ export default async function AdminProjectDetailPage({
               }
             >
               {selectedTCDs.length === 0 ? (
-                <p className="text-sm text-muted">No TCD sheets selected yet. Add from the library to define the device set for this project.</p>
+                <p className="text-sm text-[#6B7280]">No TCD sheets selected yet. Add from the library to define the device set for this project.</p>
               ) : (
                 <div className="space-y-2">
                   {selectedTCDs.map((tcd) => (
-                    <div key={tcd.id} className="flex items-center justify-between gap-4 bg-surface rounded-lg px-4 py-3">
+                    <div key={tcd.id} className="flex items-center justify-between gap-4 bg-[#F8F9FB] rounded-lg px-4 py-3">
                       <div>
-                        <p className="text-sm font-semibold text-ink">{tcd.code}</p>
-                        <p className="text-xs text-muted">{tcd.description}</p>
+                        <p className="text-sm font-semibold text-[#111827]">{tcd.code}</p>
+                        <p className="text-xs text-[#6B7280]">{tcd.description}</p>
                       </div>
                       <RemoveTCDButton selectionId={tcd.id} projectId={project.id} />
                     </div>
@@ -1188,7 +1182,7 @@ export default async function AdminProjectDetailPage({
               description="Requirements derived from the selected authority. Apply project-specific overrides as needed before assigning a designer."
             >
               {!authorityProfile ? (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-[#6B7280]">
                   Select a permitting authority above to see requirements.
                 </p>
               ) : (
@@ -1198,8 +1192,8 @@ export default async function AdminProjectDetailPage({
                   <div className="flex flex-wrap gap-x-8 gap-y-3">
                     {authorityProfile.submission_method && (
                       <div>
-                        <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Submission</p>
-                        <p className="text-sm text-ink">
+                        <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Submission</p>
+                        <p className="text-sm text-[#111827]">
                           {({
                             email:     "Email",
                             portal:    "Online Portal",
@@ -1212,8 +1206,8 @@ export default async function AdminProjectDetailPage({
                     )}
                     {authorityProfile.output_format && (
                       <div>
-                        <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Format</p>
-                        <p className="text-sm text-ink">{authorityProfile.output_format}</p>
+                        <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Format</p>
+                        <p className="text-sm text-[#111827]">{authorityProfile.output_format}</p>
                       </div>
                     )}
                   </div>
@@ -1221,7 +1215,7 @@ export default async function AdminProjectDetailPage({
                   {/* Notification only */}
                   {(resolved?.notificationOnly ?? authorityProfile.notification_only) && (
                     <div>
-                      <span className="text-[10px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">
+                      <span className="text-[10px] font-medium text-[#D97706] bg-[#FFFBEB] rounded px-1.5 py-0.5">
                         Notification Only — no permit decision
                       </span>
                     </div>
@@ -1240,10 +1234,10 @@ export default async function AdminProjectDetailPage({
                     if (reqDocs.length === 0) return null;
                     return (
                       <div>
-                        <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Required Documents</p>
+                        <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1.5">Required Documents</p>
                         <div className="flex flex-wrap gap-1.5">
                           {reqDocs.map((f) => (
-                            <span key={f.label} className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5">
+                            <span key={f.label} className="text-[10px] font-medium bg-[#EFF6FF] text-[#1565C0] rounded px-1.5 py-0.5">
                               {f.label}
                             </span>
                           ))}
@@ -1253,26 +1247,18 @@ export default async function AdminProjectDetailPage({
                   })()}
 
                   {/* Project Overrides — collapsible, closed by default */}
-                  <details
-                    className="group"
-                    style={{ borderTop: "1px solid #e3e9ec", paddingTop: "1rem" }}
-                  >
+                  <details className="group border-t border-[#E5E7EB] pt-4">
                     <summary className="list-none cursor-pointer flex items-center justify-between gap-2 select-none [&::-webkit-details-marker]:hidden">
-                      <p className="text-[11px] font-medium text-muted uppercase tracking-wider">
+                      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
                         Project Overrides
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-faint">
+                        <span className="text-[11px] text-[#9CA3AF]">
                           {activeOverrideCount === 0
                             ? "Using authority defaults"
                             : `${activeOverrideCount} override${activeOverrideCount !== 1 ? "s" : ""} active`}
                         </span>
-                        <svg
-                          className="w-3.5 h-3.5 text-muted transition-transform group-open:rotate-180"
-                          fill="none" viewBox="0 0 16 16" aria-hidden
-                        >
-                          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <ChevronDown size={14} strokeWidth={1.5} className="text-[#6B7280] transition-transform group-open:rotate-180" />
                       </div>
                     </summary>
                     <div className="mt-3">
@@ -1321,7 +1307,7 @@ export default async function AdminProjectDetailPage({
               action={<UploadTCPAdminForm projectId={project.id} />}
             >
               {tcpFiles.length === 0 ? (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-[#6B7280]">
                   {designerName
                     ? `Awaiting TCP upload from ${designerName}.`
                     : "No TCP sheets yet. Use the button above to upload, or assign a designer."}
@@ -1352,33 +1338,30 @@ export default async function AdminProjectDetailPage({
             >
               {inReview ? (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 bg-violet-50 rounded-lg px-4 py-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
-                    <p className="text-sm font-medium text-ink">
+                  <div className="flex items-center gap-3 bg-[#EFF6FF] border border-[#1565C0]/30 rounded-lg px-4 py-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#1565C0] flex-shrink-0" />
+                    <p className="text-sm font-medium text-[#111827]">
                       {designerName ?? "Designer"} has submitted TCP sheets for review.
                     </p>
                   </div>
                   <DesignReviewPanel projectId={project.id} />
                 </div>
               ) : project.status === "revisions_required" ? (
-                <div className="flex items-start gap-3 bg-red-50 rounded-lg px-4 py-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-                  <p className="text-sm text-ink">
+                <div className="flex items-start gap-3 bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-4 py-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 flex-shrink-0" />
+                  <p className="text-sm text-[#111827]">
                     Revisions have been requested. Awaiting revised TCP sheets from{" "}
                     {designerName ?? "designer"}.
                   </p>
                 </div>
               ) : ["approved", "package_generating", "ready_for_submission", "submitted",
                    "waiting_on_authority", "authority_action_needed", "permit_received", "closed"].includes(project.status) ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-700">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                    <circle cx="8" cy="8" r="7" fill="#dcfce7" />
-                    <path d="M5 8l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                <div className="flex items-center gap-2 text-sm text-[#16A34A]">
+                  <CheckCircle2 size={16} strokeWidth={1.5} className="flex-shrink-0" />
                   Design approved. Package generation is now eligible.
                 </div>
               ) : (
-                <p className="text-sm text-muted">Awaiting designer submission.</p>
+                <p className="text-sm text-[#6B7280]">Awaiting designer submission.</p>
               )}
             </SectionCard>
 
