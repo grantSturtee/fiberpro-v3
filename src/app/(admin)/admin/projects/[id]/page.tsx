@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AlertTriangle } from "lucide-react";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { UploadSLDForm, DeleteSLDButton } from "@/components/admin/UploadSLDForm";
@@ -87,8 +88,8 @@ const JOB_TYPE_LABELS_INLINE: Record<string, string> = {
 function FieldPair({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm text-ink">{value || <span className="text-faint">—</span>}</p>
+      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm text-[#111827]">{value || <span className="text-[#9CA3AF]">—</span>}</p>
     </div>
   );
 }
@@ -127,30 +128,30 @@ function ProjectIntelligenceSection({
 
         {/* Jurisdiction */}
         <div>
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Jurisdiction</p>
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Jurisdiction</p>
           {jurisdiction ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
                 <div>
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Authority</p>
-                  <p className="text-sm text-ink">{jurisdiction.authority_name}</p>
+                  <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Authority</p>
+                  <p className="text-sm text-[#111827]">{jurisdiction.authority_name}</p>
                 </div>
                 {jurisdiction.submission_method && (
                   <div>
-                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Submission</p>
-                    <p className="text-sm text-ink">{humanize(jurisdiction.submission_method)}</p>
+                    <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Submission</p>
+                    <p className="text-sm text-[#111827]">{humanize(jurisdiction.submission_method)}</p>
                   </div>
                 )}
                 {jurisdiction.avg_approval_days && (
                   <div>
-                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Avg. Approval</p>
-                    <p className="text-sm text-ink">~{jurisdiction.avg_approval_days} days</p>
+                    <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Avg. Approval</p>
+                    <p className="text-sm text-[#111827]">~{jurisdiction.avg_approval_days} days</p>
                   </div>
                 )}
                 {(jurisdiction.application_fee !== null || jurisdiction.jurisdiction_fee !== null) && (
                   <div>
-                    <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Fees</p>
-                    <p className="text-sm text-ink">
+                    <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Fees</p>
+                    <p className="text-sm text-[#111827]">
                       {[
                         jurisdiction.application_fee !== null ? `App $${Number(jurisdiction.application_fee).toFixed(2)}` : null,
                         jurisdiction.jurisdiction_fee !== null ? `Jur $${Number(jurisdiction.jurisdiction_fee).toFixed(2)}` : null,
@@ -162,12 +163,12 @@ function ProjectIntelligenceSection({
 
               {requiredDocs.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Required Documents</p>
+                  <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1.5">Required Documents</p>
                   <div className="flex flex-wrap gap-1.5">
                     {requiredDocs.map((f) => (
                       <span
                         key={f.key}
-                        className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5"
+                        className="text-[10px] font-medium bg-[#EFF6FF] text-[#1565C0] rounded px-1.5 py-0.5"
                       >
                         {f.label}
                       </span>
@@ -177,36 +178,36 @@ function ProjectIntelligenceSection({
               )}
 
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted">
+                <p className="text-xs text-[#6B7280]">
                   {[jurisdiction.township, jurisdiction.county ? `${jurisdiction.county} Co.` : null, jurisdiction.state]
                     .filter(Boolean).join(", ")}
                 </p>
                 <Link
                   href={`/admin/settings/jurisdictions/${jurisdiction.id}/edit`}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-[#1565C0] hover:underline"
                 >
                   Edit →
                 </Link>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted">No jurisdiction matched. Check state/county/city, then recalculate.</p>
+            <p className="text-sm text-[#6B7280]">No jurisdiction matched. Check state/county/city, then recalculate.</p>
           )}
         </div>
 
         {/* Estimated Price */}
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-5">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Estimated Price</p>
-          <p className="text-2xl font-semibold text-ink">
+        <div className="border-t border-[#E5E7EB] pt-5">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Estimated Price</p>
+          <p className="text-2xl font-semibold text-[#111827]">
             {estimatedPrice !== null
               ? `$${Number(estimatedPrice).toFixed(2)}`
-              : <span className="text-base font-normal text-muted">Not calculated</span>
+              : <span className="text-base font-normal text-[#6B7280]">Not calculated</span>
             }
           </p>
           {estimatedPrice === null && (
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-[#6B7280]">
               Requires a matching jurisdiction and pricing rule.{" "}
-              <Link href="/admin/settings/pricing" className="text-primary hover:underline">
+              <Link href="/admin/settings/pricing" className="text-[#1565C0] hover:underline">
                 Manage pricing rules →
               </Link>
             </p>
@@ -214,19 +215,15 @@ function ProjectIntelligenceSection({
         </div>
 
         {/* Recalculate */}
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4 space-y-3">
+        <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
           {isStale && (
-            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden className="flex-shrink-0">
-                <path d="M6.5 1.5L11.5 10.5H1.5L6.5 1.5Z" fill="#fef08a" stroke="#d97706" strokeWidth="1.2" strokeLinejoin="round" />
-                <path d="M6.5 5.5v2.5" stroke="#d97706" strokeWidth="1.2" strokeLinecap="round" />
-                <circle cx="6.5" cy="9.5" r=".6" fill="#d97706" />
-              </svg>
-              <p className="text-xs text-amber-700">Intake data changed — recalculate to refresh.</p>
+            <div className="flex items-center gap-2 rounded-lg bg-[#FFFBEB] border border-[#FCD34D] px-3 py-2">
+              <AlertTriangle size={13} strokeWidth={1.5} className="text-[#D97706] flex-shrink-0" />
+              <p className="text-xs text-[#D97706]">Intake data changed — recalculate to refresh.</p>
             </div>
           )}
           <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-muted">
+            <p className="text-xs text-[#6B7280]">
               Jurisdiction match + price calculation + workflow log.
             </p>
             <RecomputeProjectButton projectId={projectId} highlighted={isStale} />
@@ -929,23 +926,20 @@ export default async function AdminProjectDetailPage({
     <div className="h-full flex flex-col overflow-hidden">
 
       {/* ── Sticky project header ── */}
-      <div
-        className="flex-shrink-0 bg-card px-8 py-4 flex items-center gap-4"
-        style={{ boxShadow: "0 1px 0 rgba(43,52,55,0.08)" }}
-      >
+      <div className="flex-shrink-0 bg-white border-b border-[#E5E7EB] px-8 py-4 flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <Link href="/admin/projects" className="text-xs text-muted hover:text-dim transition-colors">
+            <Link href="/admin/projects" className="text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors">
               Projects
             </Link>
-            <span className="text-xs text-faint">/</span>
-            <span className="text-xs text-muted font-mono">{project.job_number}</span>
+            <span className="text-[12px] text-[#9CA3AF]">/</span>
+            <span className="text-[12px] text-[#6B7280] font-mono">{project.job_number}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-base font-semibold text-ink">{project.job_name}</h1>
+            <h1 className="text-[20px] font-bold text-[#111827]">{project.job_name}</h1>
             <ProjectStatusBadge status={project.unified_status} />
           </div>
-          <p className="text-xs text-muted mt-0.5">
+          <p className="text-[12px] text-[#6B7280] mt-0.5">
             {project.company_name ?? "—"} · {authorityDisplay}
           </p>
         </div>
