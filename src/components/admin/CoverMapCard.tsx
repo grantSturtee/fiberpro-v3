@@ -40,6 +40,14 @@ const EDITOR_H = 306;
 // Hit radius (px) for double-click-vs-drag and last-point detection.
 const POINT_RADIUS = 4;
 
+// ── Button style constants ────────────────────────────────────────────────────
+// Single source of truth for the four button kinds used across the chrome.
+
+const BTN_PRIMARY     = "px-3 py-1.5 text-xs font-semibold text-white rounded-lg bg-[#1565C0] hover:bg-[#1251A3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_SECONDARY   = "px-3 py-1.5 text-xs font-medium rounded-lg bg-white text-[#374151] hover:bg-[#F9FAFB] border border-[#E5E7EB] transition-colors disabled:opacity-40";
+const BTN_DESTRUCTIVE = "px-3 py-1.5 text-xs font-medium rounded-lg bg-white text-[#DC2626] hover:bg-[#FEF2F2] border border-[#E5E7EB] transition-colors disabled:opacity-40";
+const BTN_GHOST       = "px-3 py-1.5 text-xs font-medium rounded-lg bg-white text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#111827] border border-[#E5E7EB] transition-colors";
+
 function UploadButton({ label, disabled }: { label: string; disabled: boolean }) {
   const { pending } = useFormStatus();
   const active = !disabled && !pending;
@@ -47,12 +55,7 @@ function UploadButton({ label, disabled }: { label: string; disabled: boolean })
     <button
       type="submit"
       disabled={!active}
-      className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-opacity flex-shrink-0"
-      style={{
-        background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)",
-        opacity: active ? 1 : 0.35,
-        cursor: active ? "pointer" : "default",
-      }}
+      className={`${BTN_PRIMARY} flex-shrink-0`}
     >
       {pending ? "Uploading…" : label}
     </button>
@@ -75,12 +78,11 @@ const RemoveConfirmButton = forwardRef<
       type={armed ? "submit" : "button"}
       onClick={armed ? undefined : onArm}
       disabled={pending}
-      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-      style={{
-        border: "1px solid #fca5a5",
-        background: armed ? "#fee2e2" : "transparent",
-        color: "#b91c1c",
-      }}
+      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 flex-shrink-0 border ${
+        armed
+          ? "bg-[#DC2626] text-white hover:bg-[#B91C1C] border-[#DC2626]"
+          : "bg-white text-[#DC2626] hover:bg-[#FEF2F2] border-[#FECACA]"
+      }`}
     >
       {pending ? "Removing…" : armed ? "Confirm remove?" : "Remove Cover Map"}
     </button>
@@ -182,12 +184,9 @@ export function CoverMapCard({
           {/* ── Main card — preview when idle, in-place editor when editing.
               Single 1.83-ratio canvas serves both modes so there's no
               duplicate cropped image on screen. */}
-          <div
-            className="rounded-lg p-3 space-y-2 bg-canvas"
-            style={{ border: "1px solid #d4dde4" }}
-          >
+          <div className="rounded-lg p-3 space-y-2 bg-[#F8F9FB] border border-[#E5E7EB]">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <p className="text-xs font-medium text-dim">
+              <p className="text-xs font-medium text-[#6B7280]">
                 {cropMode
                   ? "Adjust Crop"
                   : editing
@@ -197,7 +196,7 @@ export function CoverMapCard({
               {currentMapCroppedUrl && !editing && !cropMode && (
                 <div className="flex items-center gap-3 flex-wrap">
                   {hasPath && (
-                    <span className="text-xs text-muted">
+                    <span className="text-xs text-[#6B7280]">
                       {pathCount} path{pathCount === 1 ? "" : "s"} · {pointCount} point{pointCount === 1 ? "" : "s"}
                     </span>
                   )}
@@ -205,7 +204,7 @@ export function CoverMapCard({
                     <button
                       type="button"
                       onClick={() => setCropMode(true)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas transition-colors"
+                      className={BTN_SECONDARY}
                     >
                       Adjust Crop
                     </button>
@@ -213,7 +212,7 @@ export function CoverMapCard({
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas transition-colors"
+                    className={BTN_SECONDARY}
                   >
                     {hasPath ? "Edit Work Path" : "Add Work Path"}
                   </button>
@@ -250,13 +249,11 @@ export function CoverMapCard({
 
             {!editing && !cropMode && !currentMapCroppedUrl && (
               <div
-                className="flex items-center justify-center text-xs text-muted text-center px-3 mx-auto"
+                className="flex items-center justify-center text-xs text-[#6B7280] text-center px-3 mx-auto border border-dashed border-[#E5E7EB] rounded-md"
                 style={{
                   width: "100%",
                   maxWidth: EDITOR_W,
                   aspectRatio: `${EDITOR_W} / ${EDITOR_H}`,
-                  border: "1px dashed #d4dde4",
-                  borderRadius: 6,
                 }}
               >
                 Cropped preview not available yet.
@@ -288,22 +285,20 @@ export function CoverMapCard({
 
           {/* ── Compact source row — filename + open link. Stays small so the
               cropped preview keeps the focus. */}
-          <div
-            className="flex items-center justify-between gap-3 rounded-lg px-3 py-2"
-            style={{ border: "1px solid #d4dde4" }}
-          >
+          <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 border border-[#E5E7EB]">
             <div className="flex items-center gap-2 min-w-0">
               <div
-                className="flex items-center justify-center w-7 h-8 rounded text-[9px] font-bold text-red-700 flex-shrink-0"
-                style={{ background: "#fee2e2", border: "1px solid #fecaca" }}
+                className={`flex items-center justify-center w-7 h-5 rounded-md text-[9px] font-bold flex-shrink-0 ${
+                  originalIsPdf ? "bg-[#DC2626] text-white" : "bg-[#EFF6FF] text-[#1565C0]"
+                }`}
               >
                 {originalIsPdf ? "PDF" : "IMG"}
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-muted">
+                <p className="text-[10px] uppercase tracking-wide text-[#6B7280]">
                   Source {originalIsPdf ? "PDF" : "File"}
                 </p>
-                <p className="text-xs text-ink truncate">
+                <p className="text-xs text-[#111827] truncate">
                   {currentMapFileName ?? (originalIsPdf ? "Cover map.pdf" : "Cover map")}
                 </p>
               </div>
@@ -312,17 +307,14 @@ export function CoverMapCard({
               href={currentMapUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex-shrink-0"
+              className="text-xs font-medium text-[#1565C0] hover:underline transition-colors flex-shrink-0"
             >
               {originalIsPdf ? "Open PDF" : "Open Original"}
             </a>
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-lg p-6 text-center text-sm text-muted bg-canvas"
-          style={{ border: "1px dashed #d4dde4" }}
-        >
+        <div className="rounded-lg p-6 text-center text-sm text-[#6B7280] bg-[#F8F9FB] border border-dashed border-[#E5E7EB]">
           No cover map uploaded.
         </div>
       )}
@@ -333,13 +325,10 @@ export function CoverMapCard({
           inside the same flex row via `display: contents` so each button
           stays bound to its own server action / `useActionState`. */}
       <div className="space-y-2">
-        <p className="text-xs font-medium text-dim">
+        <p className="text-xs font-medium text-[#6B7280]">
           {currentMapUrl ? "Replace cover map" : "Upload cover map"}
         </p>
-        <div
-          className="rounded-lg p-3 space-y-2"
-          style={{ border: "1px solid #d4dde4", background: "var(--canvas)" }}
-        >
+        <div className="rounded-lg p-3 space-y-2 border border-[#E5E7EB] bg-[#F8F9FB]">
           <div className="flex items-center gap-3 flex-wrap">
             <form action={uploadAction} style={{ display: "contents" }}>
               <input type="hidden" name="project_id" value={projectId} />
@@ -356,13 +345,13 @@ export function CoverMapCard({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-surface transition-colors flex-shrink-0"
+                className={`${BTN_SECONDARY} flex-shrink-0`}
               >
                 Choose PDF
               </button>
               <span
                 className={`text-xs truncate flex-1 min-w-0 ${
-                  selectedName ? "text-ink" : "text-muted"
+                  selectedName ? "text-[#111827]" : "text-[#6B7280]"
                 }`}
               >
                 {selectedName ?? "No file selected"}
@@ -384,15 +373,15 @@ export function CoverMapCard({
               </form>
             )}
           </div>
-          <p className="text-xs text-muted">{ACCEPTED_LABEL}</p>
+          <p className="text-xs text-[#6B7280]">{ACCEPTED_LABEL}</p>
         </div>
         {uploadState.success && !error && (
-          <p className="text-xs font-medium text-emerald-600">Saved ✓</p>
+          <p className="text-xs font-medium text-[#16A34A]">Saved ✓</p>
         )}
       </div>
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-[#DC2626]">{error}</p>
       )}
     </div>
   );
@@ -675,8 +664,7 @@ function WorkPathEditor({
   return (
     <form
       action={saveAction}
-      className={embedded ? "space-y-3" : "rounded-lg p-3 space-y-3"}
-      style={embedded ? undefined : { border: "1px solid #d4dde4", background: "var(--surface)" }}
+      className={embedded ? "space-y-3" : "rounded-lg p-3 space-y-3 border border-[#E5E7EB] bg-[#F8F9FB]"}
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input
@@ -689,14 +677,14 @@ function WorkPathEditor({
           the parent card own the title and shows the live count alone,
           right-aligned, so the user still sees draft/saved totals. */}
       {embedded ? (
-        <p className="text-xs text-muted text-right">
+        <p className="text-xs text-[#6B7280] text-right">
           {pathCount} path{pathCount === 1 ? "" : "s"} · {totalPoints} point
           {totalPoints === 1 ? "" : "s"}
         </p>
       ) : (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-medium text-dim">Work Path Editor</p>
-          <p className="text-xs text-muted">
+          <p className="text-xs font-medium text-[#6B7280]">Work Path Editor</p>
+          <p className="text-xs text-[#6B7280]">
             {pathCount} path{pathCount === 1 ? "" : "s"} · {totalPoints} point
             {totalPoints === 1 ? "" : "s"}
           </p>
@@ -839,7 +827,7 @@ function WorkPathEditor({
         </svg>
       </div>
 
-      <p className="text-xs text-muted text-center">
+      <p className="text-xs text-[#6B7280] text-center">
         {drafting
           ? "Click to add points. Double-click to finish a path."
           : selectedPointIdx !== null
@@ -866,7 +854,7 @@ function WorkPathEditor({
               type="button"
               onClick={finishDraft}
               disabled={drafting.points.length < 2}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+              className={BTN_PRIMARY}
             >
               Finish Path
             </button>
@@ -874,14 +862,14 @@ function WorkPathEditor({
               type="button"
               onClick={handleUndoLastPoint}
               disabled={drafting.points.length === 0}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+              className={BTN_SECONDARY}
             >
               Undo Point
             </button>
             <button
               type="button"
               onClick={handleCancelDraft}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-muted hover:bg-canvas"
+              className={BTN_GHOST}
             >
               Cancel Path
             </button>
@@ -894,7 +882,7 @@ function WorkPathEditor({
               type="button"
               onClick={handleNewPath}
               disabled={atPathLimit}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+              className={BTN_SECONDARY}
             >
               New Path
             </button>
@@ -902,7 +890,7 @@ function WorkPathEditor({
               <button
                 type="button"
                 onClick={() => deletePoint(selectedPathId, selectedPointIdx)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-red-600 hover:bg-canvas"
+                className={BTN_DESTRUCTIVE}
               >
                 Delete Point
               </button>
@@ -911,7 +899,7 @@ function WorkPathEditor({
               <button
                 type="button"
                 onClick={() => deletePath(selectedPathId)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-red-600 hover:bg-canvas"
+                className={BTN_DESTRUCTIVE}
               >
                 Delete Path
               </button>
@@ -923,7 +911,7 @@ function WorkPathEditor({
           <button
             type="button"
             onClick={handleClearAll}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-red-600 hover:bg-canvas"
+            className={BTN_DESTRUCTIVE}
           >
             Clear All
           </button>
@@ -932,13 +920,13 @@ function WorkPathEditor({
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-muted hover:bg-canvas"
+          className={BTN_GHOST}
         >
           Cancel
         </button>
 
         {saveState.error && (
-          <span className="text-xs text-red-600 ml-2">{saveState.error}</span>
+          <span className="text-xs text-[#DC2626] ml-2">{saveState.error}</span>
         )}
       </div>
     </form>
@@ -951,10 +939,7 @@ function SaveBtn() {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg disabled:opacity-50"
-      style={{
-        background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)",
-      }}
+      className={BTN_PRIMARY}
     >
       {pending ? "Saving…" : "Save Path"}
     </button>
@@ -973,11 +958,8 @@ function StylePanel({
   onChange: (patch: Partial<AnnotationPath>) => void;
 }) {
   return (
-    <div
-      className="rounded-lg p-3 space-y-3"
-      style={{ border: "1px solid #d4dde4", background: "var(--canvas)" }}
-    >
-      <p className="text-xs font-medium text-dim">GRANTED Work Path Style</p>
+    <div className="rounded-lg p-3 space-y-3 bg-[#F8F9FB] border border-[#E5E7EB]">
+      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">GRANTED Work Path Style</p>
 
       <SegmentedRow
         label="Dash Pattern"
@@ -1001,7 +983,7 @@ function StylePanel({
         onChange={(v) => onChange({ workPathThickness: v as WorkPathThickness })}
       />
 
-      <p className="text-xs text-muted">
+      <p className="text-xs text-[#6B7280]">
         Work paths always render as black dashed lines for consistency.
       </p>
     </div>
@@ -1020,11 +1002,8 @@ function SegmentedRow<T extends string>({
 }) {
   return (
     <div className="flex items-center gap-2">
-      {label && <label className="text-xs text-dim w-28 shrink-0">{label}</label>}
-      <div
-        className="inline-flex rounded-lg overflow-hidden"
-        style={{ border: "1px solid #d4dde4" }}
-      >
+      {label && <label className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider w-28 shrink-0">{label}</label>}
+      <div className="inline-flex rounded-lg bg-[#F8F9FB] border border-[#E5E7EB] p-0.5">
         {options.map((opt) => {
           const active = opt.value === value;
           return (
@@ -1032,12 +1011,11 @@ function SegmentedRow<T extends string>({
               key={opt.value}
               type="button"
               onClick={() => onChange(opt.value)}
-              className="px-2.5 py-1 text-xs font-medium transition-colors"
-              style={{
-                background: active ? "#005bc1" : "transparent",
-                color:      active ? "white"   : "var(--ink)",
-                cursor:     active ? "default" : "pointer",
-              }}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                active
+                  ? "bg-white text-[#111827] shadow-sm cursor-default"
+                  : "text-[#6B7280] hover:text-[#111827] cursor-pointer"
+              }`}
             >
               {opt.label}
             </button>
@@ -1152,8 +1130,7 @@ function CropSaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg disabled:opacity-50"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className={BTN_PRIMARY}
     >
       {pending ? "Saving…" : "Save Crop"}
     </button>
@@ -1334,17 +1311,11 @@ function CropEditor({
 
       <div
         ref={viewportRef}
-        className="relative mx-auto select-none overflow-hidden"
+        className="relative mx-auto select-none overflow-hidden rounded-md bg-[#F8F9FB] border border-[#E5E7EB]"
         style={{
           width:        "100%",
           maxWidth:     EDITOR_W,
           aspectRatio:  `${EDITOR_W} / ${EDITOR_H}`,
-          // Neutral surface so the viewport reads as the same fixed crop
-          // window as the static preview rather than a black hole. Anything
-          // briefly visible during raster decode looks like an empty frame.
-          background:   "var(--surface)",
-          border:       "1px solid #d4dde4",
-          borderRadius: 6,
           cursor:       dragRef.current ? "grabbing" : "grab",
           touchAction:  "none",
         }}
@@ -1377,21 +1348,18 @@ function CropEditor({
           }}
         />
         {!ready && (
-          <p className="absolute inset-0 flex items-center justify-center text-xs text-muted">
+          <p className="absolute inset-0 flex items-center justify-center text-[12px] text-[#6B7280]">
             Loading map…
           </p>
         )}
       </div>
 
-      <p className="text-xs text-muted text-center">
+      <p className="text-[12px] text-[#6B7280] text-center">
         Drag to pan · use Zoom buttons to scale · the framed area is what will be saved.
       </p>
 
       {hasAnnotations && (
-        <p
-          className="text-xs rounded-lg p-2 text-center"
-          style={{ background: "#dbeafe", color: "#1e40af", border: "1px solid #bfdbfe" }}
-        >
+        <p className="text-xs rounded-lg p-2 text-center bg-[#EFF6FF] border border-[#1565C0]/30 text-[#1565C0]">
           Existing work paths will be reprojected into the new crop when saved.
         </p>
       )}
@@ -1401,7 +1369,7 @@ function CropEditor({
           type="button"
           onClick={onZoomOut}
           disabled={!ready || s <= sMin + 1e-6}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+          className={BTN_SECONDARY}
         >
           Zoom Out
         </button>
@@ -1409,7 +1377,7 @@ function CropEditor({
           type="button"
           onClick={onZoomIn}
           disabled={!ready || s >= sMax - 1e-6}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+          className={BTN_SECONDARY}
         >
           Zoom In
         </button>
@@ -1417,7 +1385,7 @@ function CropEditor({
           type="button"
           onClick={onReset}
           disabled={!ready}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-ink hover:bg-canvas disabled:opacity-40"
+          className={BTN_SECONDARY}
         >
           Reset
         </button>
@@ -1425,14 +1393,14 @@ function CropEditor({
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-soft text-muted hover:bg-canvas"
+          className={BTN_GHOST}
         >
           Cancel
         </button>
       </div>
 
       {saveState.error && (
-        <p className="text-xs text-red-600 text-center">{saveState.error}</p>
+        <p className="text-xs text-[#DC2626] text-center">{saveState.error}</p>
       )}
     </form>
   );
