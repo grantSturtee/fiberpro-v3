@@ -21,8 +21,7 @@ function SaveBtn({ disabled }: { disabled?: boolean }) {
     <button
       type="submit"
       disabled={pending || disabled}
-      className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-opacity disabled:opacity-40"
-      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+      className="text-xs px-3 py-1.5 rounded-lg font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] transition-colors disabled:opacity-40"
     >
       {pending ? "Saving…" : "Save"}
     </button>
@@ -67,8 +66,7 @@ export function BlueprintSelector({
         name="blueprint_id"
         defaultValue={currentBlueprintId ?? ""}
         disabled={!hasAuthority || noActiveTemplate}
-        className="w-full text-sm text-ink bg-canvas rounded-lg px-3 py-1.5 outline-none disabled:opacity-50"
-        style={{ border: "1px solid #d4dde4" }}
+        className="w-full border border-[#D1D5DB] rounded-md px-3 py-2 text-[14px] bg-white text-[#111827] focus:border-[#1565C0] focus:outline-none focus:ring-2 focus:ring-[#EFF6FF] disabled:opacity-50"
       >
         <option value="">{defaultLabel}</option>
         {blueprints.map((b) => (
@@ -79,27 +77,27 @@ export function BlueprintSelector({
         ))}
       </select>
 
-      <p className="text-[11px] text-faint">
+      <p className="text-[11px] text-[#9CA3AF]">
         Only active templates for the selected authority are listed.
       </p>
 
       <div className="flex items-center gap-3">
         <SaveBtn disabled={!hasAuthority || noActiveTemplate} />
         {!hasAuthority ? (
-          <span className="text-xs text-muted">Select a permitting authority first.</span>
+          <span className="text-xs text-[#6B7280]">Select a permitting authority first.</span>
         ) : noActiveTemplate ? (
-          <span className="text-xs text-amber-700 font-medium">No active package template configured</span>
+          <span className="text-xs text-[#D97706] font-medium">No active package template configured</span>
         ) : overrideMissing ? (
-          <span className="text-xs text-amber-700 font-medium">
+          <span className="text-xs text-[#D97706] font-medium">
             Saved override is no longer active — generation will use authority default
           </span>
         ) : currentBlueprintId ? (
-          <span className="text-xs text-amber-700 font-medium">Template override selected</span>
+          <span className="text-xs text-[#D97706] font-medium">Template override selected</span>
         ) : (
-          <span className="text-xs text-muted">Using authority default</span>
+          <span className="text-xs text-[#6B7280]">Using authority default</span>
         )}
-        {state.error && <p className="text-xs text-red-600">{state.error}</p>}
-        {state.success && <p className="text-xs text-emerald-600">Saved</p>}
+        {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
+        {state.success && <p className="text-xs text-[#16A34A]">Saved</p>}
       </div>
     </form>
   );

@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import { UPDATE_STATUS_META, type UpdateStatus } from "@/lib/utils/projectUpdateStatus";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { PostUpdateForm } from "@/components/admin/PostUpdateForm";
@@ -71,25 +72,8 @@ function feedTime(iso: string): string {
 
 function StaleWarning({ dayCount }: { dayCount: number | null }) {
   return (
-    <div
-      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-amber-700"
-      style={{ background: "#fffbeb", border: "1px solid #fcd34d" }}
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M8 2L14 13H2L8 2z" />
-        <line x1="8" y1="7" x2="8" y2="10" />
-        <circle cx="8" cy="12" r="0.5" fill="currentColor" />
-      </svg>
+    <div className="flex items-center gap-2 bg-[#FFFBEB] border border-[#FCD34D] rounded-lg px-3 py-2 text-[12px] text-[#92400E]">
+      <AlertTriangle size={13} strokeWidth={1.5} className="text-[#D97706] flex-shrink-0" />
       <span>
         {dayCount === null
           ? "No status updates yet — post the first one below."
@@ -105,9 +89,9 @@ function TimestampCell({ iso }: { iso: string }) {
   const older = !isToday(iso);
   return (
     <div className="flex-shrink-0 text-right min-w-[3.5rem]">
-      <p className="text-[11px] text-muted leading-tight">{feedDate(iso)}</p>
+      <p className="text-[11px] text-[#6B7280] leading-tight">{feedDate(iso)}</p>
       {older && (
-        <p className="text-[10px] text-faint invisible group-hover:visible leading-tight">
+        <p className="text-[10px] text-[#9CA3AF] invisible group-hover:visible leading-tight">
           {feedTime(iso)}
         </p>
       )}
@@ -137,7 +121,7 @@ function buildFeedItems(
 
 function FeedRows({ items }: { items: FeedItem[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted">No activity recorded yet.</p>;
+    return <p className="text-sm text-[#6B7280]">No activity recorded yet.</p>;
   }
   return (
     <div className="space-y-0.5">
@@ -150,24 +134,24 @@ function FeedRows({ items }: { items: FeedItem[] }) {
             <div key={`s-${item.id}`} className="group flex items-stretch gap-2 px-1 py-1.5">
               <div
                 className="w-0.5 flex-shrink-0 rounded-full"
-                style={{ background: meta?.barColor ?? "#d1d5db" }}
+                style={{ background: meta?.barColor ?? "#D1D5DB" }}
                 aria-hidden
               />
               <div className="flex-shrink-0 w-28">
                 <p
                   className="text-[11px] font-bold leading-tight"
-                  style={{ color: meta?.color ?? "#6b7280" }}
+                  style={{ color: meta?.color ?? "#6B7280" }}
                 >
                   {meta?.label ?? "Update"}
                 </p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <UserAvatar displayName={item.created_by} size="xs" />
-                  <p className="text-[11px] text-muted truncate">{item.created_by}</p>
+                  <p className="text-[11px] text-[#6B7280] truncate">{item.created_by}</p>
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 {item.body && (
-                  <p className="text-sm text-ink whitespace-pre-wrap leading-snug">
+                  <p className="text-sm text-[#111827] whitespace-pre-wrap leading-snug">
                     {item.body}
                   </p>
                 )}
@@ -183,11 +167,11 @@ function FeedRows({ items }: { items: FeedItem[] }) {
             <div className="flex-shrink-0 w-32">
               <div className="flex items-center gap-1">
                 <UserAvatar displayName={actor} size="xs" />
-                <p className="text-[11px] text-muted truncate">{actor}</p>
+                <p className="text-[11px] text-[#6B7280] truncate">{actor}</p>
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-ink leading-snug">{item.action}</p>
+              <p className="text-sm text-[#111827] leading-snug">{item.action}</p>
             </div>
             <TimestampCell iso={item.created_at} />
           </div>
@@ -262,15 +246,12 @@ export function UnifiedActivityFeed({
         />
       )}
       {allItems.length > 0 && (
-        <div
-          className="space-y-0.5"
-          style={{ borderTop: "1px solid #e3e9ec", paddingTop: "0.75rem" }}
-        >
+        <div className="space-y-0.5 border-t border-[#E5E7EB] pt-3">
           <FeedRows items={allItems} />
         </div>
       )}
       {allItems.length === 0 && (
-        <p className="text-sm text-muted">No activity recorded yet.</p>
+        <p className="text-sm text-[#6B7280]">No activity recorded yet.</p>
       )}
     </div>
   );

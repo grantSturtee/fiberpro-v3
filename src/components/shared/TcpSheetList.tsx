@@ -18,8 +18,10 @@
 // DeleteTCPFileForm). No coupling to either.
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { Eye, GripVertical } from "lucide-react";
 import { reorderTcpSheets } from "@/lib/actions/tcpReorder";
 import { formatDate } from "@/lib/utils/format";
+import { FileTypeBadge } from "@/components/ui/FileTypeBadge";
 
 export type TcpSheetListItem = {
   id: string;
@@ -41,26 +43,6 @@ type Props = {
    */
   showUploaderLabel?: boolean;
 };
-
-function ViewIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"
-        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
-      />
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
-}
-
-function DragHandleIcon() {
-  return (
-    <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden>
-      <path d="M2 3h8M2 7h8M2 11h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function TcpSheetList({
   projectId,
@@ -142,11 +124,11 @@ export function TcpSheetList({
   return (
     <div>
       {error && (
-        <p className="text-xs text-red-600 mb-2" role="alert">
+        <p className="text-xs text-[#DC2626] mb-2" role="alert">
           {error}
         </p>
       )}
-      <div className="divide-y divide-surface">
+      <div className="divide-y divide-[#E5E7EB]">
         {order.map((file, idx) => {
           const isDragging = dragIndex === idx;
           const isHover = hoverIndex === idx && dragIndex !== null && dragIndex !== idx;
@@ -161,31 +143,29 @@ export function TcpSheetList({
               className={[
                 "flex items-center gap-2.5 py-2.5 transition-colors",
                 isDragging ? "opacity-40" : "",
-                isHover ? "bg-primary-soft/40" : "",
+                isHover ? "bg-[#EFF6FF]" : "",
               ].filter(Boolean).join(" ")}
             >
               {/* Drag handle (or spacer) */}
               {canReorder ? (
                 <span
-                  className="text-faint hover:text-dim cursor-grab active:cursor-grabbing flex-shrink-0 px-0.5"
+                  className="text-[#9CA3AF] hover:text-[#6B7280] cursor-grab active:cursor-grabbing flex-shrink-0 px-0.5"
                   title="Drag to reorder"
                   aria-hidden
                 >
-                  <DragHandleIcon />
+                  <GripVertical size={14} strokeWidth={1.5} />
                 </span>
               ) : (
                 <span className="w-3 flex-shrink-0" aria-hidden />
               )}
 
               {/* PDF badge */}
-              <div className="w-7 h-7 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
-                <span className="text-[9px] font-bold text-red-600">PDF</span>
-              </div>
+              <FileTypeBadge fileName={file.file_name} />
 
               {/* Name + meta */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-ink truncate">{file.file_name}</p>
-                <p className="text-xs text-muted">
+                <p className="text-sm text-[#111827] truncate">{file.file_name}</p>
+                <p className="text-xs text-[#6B7280]">
                   {showUploaderLabel && file.uploader_label ? `${file.uploader_label} · ` : ""}
                   {formatDate(file.created_at)}
                 </p>
@@ -200,13 +180,13 @@ export function TcpSheetList({
                     rel="noopener noreferrer"
                     title={`View ${file.file_name}`}
                     aria-label={`View ${file.file_name}`}
-                    className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+                    className="p-1.5 rounded text-[#6B7280] hover:text-[#1565C0] transition-colors"
                   >
-                    <ViewIcon />
+                    <Eye size={14} strokeWidth={1.5} />
                   </a>
                 ) : (
-                  <span className="p-1.5 text-faint" aria-hidden>
-                    <ViewIcon />
+                  <span className="p-1.5 text-[#9CA3AF]" aria-hidden>
+                    <Eye size={14} strokeWidth={1.5} />
                   </span>
                 )}
                 {renderDelete?.(file)}

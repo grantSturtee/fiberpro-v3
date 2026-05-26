@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 import { uploadManualPackage, type AdminActionState } from "@/app/(admin)/admin/projects/[id]/actions";
 
 function UploadForm({
@@ -26,7 +27,7 @@ function UploadForm({
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="category" value={category} />
 
-      <p className="text-[11px] font-medium text-muted uppercase tracking-wider">{label}</p>
+      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">{label}</p>
 
       {/* File input outside click zone — prevents label re-click propagation after OS picker closes */}
       <input
@@ -46,11 +47,11 @@ function UploadForm({
         role="button"
         tabIndex={0}
         aria-label="Choose a PDF file"
-        className="flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors hover:border-primary/40 hover:bg-primary/5"
-        style={{
-          borderColor: fileName ? "#005bc1" : "#d4dde4",
-          background: fileName ? "rgba(0,91,193,0.04)" : undefined,
-        }}
+        className={`flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+          fileName
+            ? "border-[#1565C0] bg-[#EFF6FF]"
+            : "border-[#E5E7EB] hover:border-[#1565C0]/40 hover:bg-[#EFF6FF]"
+        }`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -66,27 +67,26 @@ function UploadForm({
       >
         <div className="flex-1 min-w-0">
           {fileName ? (
-            <p className="text-sm text-ink truncate font-medium">{fileName}</p>
+            <p className="text-sm text-[#111827] truncate font-medium">{fileName}</p>
           ) : (
-            <p className="text-sm text-muted">Choose PDF or drag & drop here</p>
+            <p className="text-sm text-[#6B7280]">Choose PDF or drag & drop here</p>
           )}
-          <p className="text-xs text-faint mt-0.5">PDF only · max 50 MB</p>
+          <p className="text-xs text-[#9CA3AF] mt-0.5">PDF only · max 50 MB</p>
         </div>
-        <span className="text-xs font-medium text-primary flex-shrink-0">
+        <span className="text-xs font-medium text-[#1565C0] flex-shrink-0">
           {fileName ? "Change" : "Browse"}
         </span>
       </div>
 
       <div className="flex items-center justify-between gap-3">
         <div>
-          {state.error && <p className="text-xs text-red-600">{state.error}</p>}
-          {state.success && <p className="text-xs text-emerald-600">{successMessage}</p>}
+          {state.error && <p className="text-xs text-[#DC2626]">{state.error}</p>}
+          {state.success && <p className="text-xs text-[#16A34A]">{successMessage}</p>}
         </div>
         <button
           type="submit"
           disabled={pending || !fileName}
-          className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white flex-shrink-0 disabled:opacity-50 transition-colors"
-          style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+          className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-[#1565C0] hover:bg-[#1251A3] flex-shrink-0 disabled:opacity-50 transition-colors"
         >
           {pending ? "Uploading…" : "Upload"}
         </button>
@@ -98,13 +98,9 @@ function UploadForm({
 export function ManualPackageUpload({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 rounded-lg bg-amber-50 px-4 py-3">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="flex-shrink-0 mt-0.5">
-          <path d="M7 1.5L12.5 11.5H1.5L7 1.5Z" fill="#fef08a" stroke="#d97706" strokeWidth="1.2" strokeLinejoin="round" />
-          <path d="M7 5.5v3" stroke="#d97706" strokeWidth="1.2" strokeLinecap="round" />
-          <circle cx="7" cy="10" r=".6" fill="#d97706" />
-        </svg>
-        <p className="text-xs text-amber-700">
+      <div className="flex items-start gap-3 rounded-lg bg-[#FFFBEB] border border-[#FCD34D] px-4 py-3">
+        <AlertTriangle size={13} strokeWidth={1.5} className="text-[#D97706] flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-[#D97706]">
           No matching permit template — package generation is disabled.
           Upload the permit package manually below.
         </p>
