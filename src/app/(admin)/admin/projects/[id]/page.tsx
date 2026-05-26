@@ -1826,17 +1826,14 @@ export default async function AdminProjectDetailPage({
             <>
 
             {/* Pinned composer */}
-            <div
-              className="flex-shrink-0 px-8 pt-6 pb-5"
-              style={{ borderBottom: "1px solid #e3e9ec" }}
-            >
+            <div className="flex-shrink-0 px-8 pt-6 pb-5 border-b border-[#E5E7EB]">
               <div className="flex items-start justify-between gap-2 mb-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-ink">Project Activity</h2>
-                  <p className="mt-0.5 text-xs text-muted">Internal status updates and workflow events.</p>
+                  <h2 className="text-sm font-semibold text-[#111827]">Project Activity</h2>
+                  <p className="mt-0.5 text-xs text-[#6B7280]">Internal status updates and workflow events.</p>
                 </div>
                 {lastUpdateAt && (
-                  <span className="text-[11px] text-muted flex-shrink-0">
+                  <span className="text-[11px] text-[#6B7280] flex-shrink-0">
                     Updated{" "}
                     {daysSinceUpdate === 0
                       ? "today"
