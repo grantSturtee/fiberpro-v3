@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CheckCircle2, AlertTriangle, CircleDashed } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,44 +44,29 @@ const METHOD_LABELS: Record<string, string> = {
 function Req({ label, active }: { label: string; active: boolean }) {
   if (!active) return null;
   return (
-    <span className="text-[10px] font-medium bg-primary-soft text-primary rounded px-1.5 py-0.5">
+    <span className="text-[10px] font-medium bg-[#EFF6FF] text-[#1565C0] rounded px-1.5 py-0.5">
       {label}
     </span>
   );
 }
 
 function CheckRow({ item }: { item: ChecklistItem }) {
-  const color = !item.required
-    ? "text-faint"
-    : item.met
-    ? "text-emerald-700"
-    : "text-amber-700";
-
   return (
     <div className="flex items-start gap-2.5 py-1.5">
-      {/* Icon */}
+      {/* Icon — semantic color carried by the icon itself */}
       {!item.required ? (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="flex-shrink-0 mt-0.5">
-          <circle cx="7" cy="7" r="5.5" stroke="#d1d5db" strokeWidth="1.2" strokeDasharray="3 2" />
-        </svg>
+        <CircleDashed size={14} strokeWidth={1.5} className="text-[#9CA3AF] flex-shrink-0 mt-0.5" />
       ) : item.met ? (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="flex-shrink-0 mt-0.5">
-          <circle cx="7" cy="7" r="6" fill="#dcfce7" />
-          <path d="M4 7l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <CheckCircle2 size={14} strokeWidth={1.5} className="text-[#16A34A] flex-shrink-0 mt-0.5" />
       ) : (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="flex-shrink-0 mt-0.5">
-          <circle cx="7" cy="7" r="6" fill="#fef3c7" />
-          <path d="M7 4.5v3" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="7" cy="9.5" r=".6" fill="#d97706" />
-        </svg>
+        <AlertTriangle size={14} strokeWidth={1.5} className="text-[#D97706] flex-shrink-0 mt-0.5" />
       )}
       <div className="min-w-0">
-        <p className={`text-xs font-medium ${color}`}>{item.label}</p>
-        {item.detail && <p className="text-[11px] text-muted mt-0.5">{item.detail}</p>}
+        <p className="text-xs font-medium text-[#111827]">{item.label}</p>
+        {item.detail && <p className="text-[11px] text-[#6B7280] mt-0.5">{item.detail}</p>}
       </div>
       {!item.required && (
-        <span className="ml-auto text-[10px] text-faint flex-shrink-0 mt-0.5">not required</span>
+        <span className="ml-auto text-[10px] text-[#9CA3AF] flex-shrink-0 mt-0.5">not required</span>
       )}
     </div>
   );
@@ -98,7 +84,7 @@ export function AuthorityRequirementsPanel({
   if (!authority) {
     return (
       <div className="py-2">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-[#6B7280]">
           No authority selected. Choose an authority in the section above to see submission requirements.
         </p>
       </div>
@@ -121,12 +107,12 @@ export function AuthorityRequirementsPanel({
       {/* Authority header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-ink">{authority.name}</p>
-          <p className="text-xs text-muted capitalize">{authority.type}</p>
+          <p className="text-sm font-semibold text-[#111827]">{authority.name}</p>
+          <p className="text-xs text-[#6B7280] capitalize">{authority.type}</p>
         </div>
         <Link
           href={`/admin/settings/authorities/${authority.id}/edit`}
-          className="text-xs text-primary hover:underline flex-shrink-0"
+          className="text-xs text-[#1565C0] hover:underline flex-shrink-0"
         >
           Edit →
         </Link>
@@ -135,22 +121,22 @@ export function AuthorityRequirementsPanel({
       {/* Submission method + format */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Submission</p>
-          <p className="text-sm text-ink">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Submission</p>
+          <p className="text-sm text-[#111827]">
             {authority.submission_method
               ? METHOD_LABELS[authority.submission_method] ?? authority.submission_method
-              : <span className="text-faint">Not set</span>}
+              : <span className="text-[#9CA3AF]">Not set</span>}
           </p>
         </div>
         {authority.output_format && (
           <div>
-            <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-0.5">Format</p>
-            <p className="text-sm text-ink">{authority.output_format}</p>
+            <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-0.5">Format</p>
+            <p className="text-sm text-[#111827]">{authority.output_format}</p>
           </div>
         )}
         {authority.notification_only && (
           <div className="col-span-2">
-            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">
+            <span className="text-[10px] font-medium text-[#D97706] bg-[#FFFBEB] rounded px-1.5 py-0.5">
               Notification Only — no permit decision
             </span>
           </div>
@@ -159,8 +145,8 @@ export function AuthorityRequirementsPanel({
 
       {/* Required documents */}
       {reqFlags.length > 0 && (
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Required Documents</p>
+        <div className="border-t border-[#E5E7EB] pt-4">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Required Documents</p>
           <div className="flex flex-wrap gap-1.5">
             {reqFlags.map((f) => <Req key={f.label} label={f.label} active={f.active} />)}
           </div>
@@ -169,21 +155,21 @@ export function AuthorityRequirementsPanel({
 
       {/* Contact */}
       {hasContact && (
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Contact</p>
+        <div className="border-t border-[#E5E7EB] pt-4">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Contact</p>
           <div className="space-y-1">
             {authority.contact_name && (
-              <p className="text-sm text-ink">{authority.contact_name}</p>
+              <p className="text-sm text-[#111827]">{authority.contact_name}</p>
             )}
             {authority.contact_email && (
-              <p className="text-xs text-muted">
-                <a href={`mailto:${authority.contact_email}`} className="hover:text-primary transition-colors">
+              <p className="text-xs text-[#6B7280]">
+                <a href={`mailto:${authority.contact_email}`} className="hover:text-[#1565C0] transition-colors">
                   {authority.contact_email}
                 </a>
               </p>
             )}
             {authority.contact_phone && (
-              <p className="text-xs text-muted">{authority.contact_phone}</p>
+              <p className="text-xs text-[#6B7280]">{authority.contact_phone}</p>
             )}
           </div>
         </div>
@@ -191,9 +177,9 @@ export function AuthorityRequirementsPanel({
 
       {/* Submission instructions */}
       {authority.submission_instructions && (
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Submission Instructions</p>
-          <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">
+        <div className="border-t border-[#E5E7EB] pt-4">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Submission Instructions</p>
+          <p className="text-sm text-[#111827] whitespace-pre-wrap leading-relaxed">
             {authority.submission_instructions}
           </p>
         </div>
@@ -201,9 +187,9 @@ export function AuthorityRequirementsPanel({
 
       {/* Internal notes */}
       {authority.internal_notes && (
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Internal Notes</p>
-          <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">
+        <div className="border-t border-[#E5E7EB] pt-4">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Internal Notes</p>
+          <p className="text-sm text-[#111827] whitespace-pre-wrap leading-relaxed">
             {authority.internal_notes}
           </p>
         </div>
@@ -211,9 +197,9 @@ export function AuthorityRequirementsPanel({
 
       {/* Submission checklist */}
       {checklist.length > 0 && (
-        <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
-          <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">Submission Checklist</p>
-          <div className="divide-y divide-surface">
+        <div className="border-t border-[#E5E7EB] pt-4">
+          <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-1">Submission Checklist</p>
+          <div className="divide-y divide-[#E5E7EB]">
             {checklist.map((item) => (
               <CheckRow key={item.label} item={item} />
             ))}
