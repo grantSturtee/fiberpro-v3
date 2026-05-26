@@ -79,12 +79,12 @@ export const JOB_STATUS_LABEL: Record<WorkflowJobStatus, string> = {
 };
 
 export const JOB_STATUS_COLOR: Record<WorkflowJobStatus, string> = {
-  pending:   "text-amber-600",
-  queued:    "text-amber-600",
-  running:   "text-blue-600",
-  completed: "text-emerald-700",
-  failed:    "text-red-600",
-  cancelled: "text-muted",
+  pending:   "text-[#D97706]",
+  queued:    "text-[#D97706]",
+  running:   "text-[#1565C0]",
+  completed: "text-[#16A34A]",
+  failed:    "text-[#DC2626]",
+  cancelled: "text-[#6B7280]",
 };
 
 // ── Metadata shapes ───────────────────────────────────────────────────────────
