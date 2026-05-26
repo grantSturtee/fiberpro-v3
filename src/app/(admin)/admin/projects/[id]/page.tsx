@@ -1415,23 +1415,22 @@ export default async function AdminProjectDetailPage({
               }) => (
                 <div className="flex items-start gap-3">
                   <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: met ? "#dcfce7" : "#f3f4f6" }}
+                    className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      met ? "bg-[#F0FDF4]" : "bg-[#F3F4F6]"
+                    }`}
                   >
                     {met ? (
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                        <path d="M2 5l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <CheckCircle2 size={14} strokeWidth={1.5} className="text-[#16A34A]" />
                     ) : (
-                      <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+                      <span className="w-2 h-2 rounded-full bg-[#D1D5DB] block" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-sm font-medium text-ink">{label}</p>
-                      <span className={`text-xs flex-shrink-0 ${met ? "text-emerald-700" : "text-muted"}`}>{detail}</span>
+                      <p className="text-sm font-medium text-[#111827]">{label}</p>
+                      <span className={`text-xs flex-shrink-0 ${met ? "text-[#16A34A]" : "text-[#6B7280]"}`}>{detail}</span>
                     </div>
-                    {sub && <p className="text-[11px] text-muted mt-0.5">{sub}</p>}
+                    {sub && <p className="text-[11px] text-[#6B7280] mt-0.5">{sub}</p>}
                   </div>
                 </div>
               );
@@ -1446,25 +1445,25 @@ export default async function AdminProjectDetailPage({
 
                     {/* Template */}
                     <div>
-                      <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-2">Active Template</p>
+                      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-2">Active Template</p>
                       {effectiveBlueprint ? (
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-medium text-ink">{effectiveBlueprint.description}</p>
-                            <p className="text-xs text-muted mt-0.5">
+                            <p className="text-sm font-medium text-[#111827]">{effectiveBlueprint.description}</p>
+                            <p className="text-xs text-[#6B7280] mt-0.5">
                               {isAuthorityDefault ? "Authority default" : "Admin override"}
                               {effectiveBlueprint.work_type ? ` · ${effectiveBlueprint.work_type}` : ""}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {!isAuthorityDefault && (
-                              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">
+                              <span className="text-[10px] font-semibold text-[#D97706] bg-[#FFFBEB] rounded px-1.5 py-0.5">
                                 Override
                               </span>
                             )}
                             <Link
                               href={`/admin/projects/${project.id}?tab=setup`}
-                              className="text-xs text-primary hover:underline"
+                              className="text-xs text-[#1565C0] hover:underline"
                             >
                               Change →
                             </Link>
@@ -1472,10 +1471,10 @@ export default async function AdminProjectDetailPage({
                         </div>
                       ) : (
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm text-muted">No template selected.</p>
+                          <p className="text-sm text-[#6B7280]">No template selected.</p>
                           <Link
                             href={`/admin/projects/${project.id}?tab=setup`}
-                            className="text-xs text-primary hover:underline flex-shrink-0"
+                            className="text-xs text-[#1565C0] hover:underline flex-shrink-0"
                           >
                             Configure in Setup →
                           </Link>
@@ -1484,8 +1483,8 @@ export default async function AdminProjectDetailPage({
                     </div>
 
                     {/* Assembly layers with page ranges */}
-                    <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4 space-y-3">
-                      <p className="text-[11px] font-medium text-muted uppercase tracking-wider mb-3">
+                    <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
+                      <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider mb-3">
                         Assembly Order — Main Package
                       </p>
                       <CompositionRow
@@ -1529,17 +1528,14 @@ export default async function AdminProjectDetailPage({
                     </div>
 
                     {/* Readiness summary with total page count */}
-                    <div style={{ borderTop: "1px solid #e3e9ec" }} className="pt-4">
+                    <div className="border-t border-[#E5E7EB] pt-4">
                       {missingItems.length === 0 ? (
                         <div className="space-y-1.5">
-                          <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                              <circle cx="6" cy="6" r="5" fill="#dcfce7" />
-                              <path d="M3 6l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                          <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold bg-[#F0FDF4] text-[#16A34A]">
+                            <CheckCircle2 size={12} strokeWidth={1.5} />
                             Ready to generate
                           </span>
-                          <p className="text-xs text-muted pl-0.5">
+                          <p className="text-xs text-[#6B7280] pl-0.5">
                             {manifest.totalPages} page{manifest.totalPages !== 1 ? "s" : ""} total
                             {" · "}1 cover
                             {manifest.sectionCounts.tcp > 0 ? ` · ${manifest.sectionCounts.tcp} TCP` : ""}
@@ -1549,18 +1545,14 @@ export default async function AdminProjectDetailPage({
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                              <circle cx="6" cy="6" r="5" stroke="#d97706" strokeWidth="1.2" />
-                              <path d="M6 3.5v3" stroke="#d97706" strokeWidth="1.2" strokeLinecap="round" />
-                              <circle cx="6" cy="8.5" r=".6" fill="#d97706" />
-                            </svg>
+                          <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold bg-[#FFFBEB] text-[#D97706]">
+                            <AlertTriangle size={12} strokeWidth={1.5} />
                             Not ready — {missingItems.length} item{missingItems.length !== 1 ? "s" : ""} needed
                           </span>
-                          <p className="text-xs text-muted pl-0.5">
+                          <p className="text-xs text-[#6B7280] pl-0.5">
                             Missing: {missingItems.join(", ")}
                             {manifest.totalPages > 1 && (
-                              <span className="ml-2 text-faint">
+                              <span className="ml-2 text-[#9CA3AF]">
                                 ({manifest.totalPages} page{manifest.totalPages !== 1 ? "s" : ""} so far)
                               </span>
                             )}
@@ -1582,30 +1574,29 @@ export default async function AdminProjectDetailPage({
               return (
                 <SectionCard flat id="section-generated" title="Package History">
                   {/* Current / latest package */}
-                  <div className="flex items-center justify-between gap-4 bg-emerald-50 rounded-xl px-4 py-3">
+                  <div className="flex items-center justify-between gap-4 bg-[#F0FDF4] rounded-xl px-4 py-3">
                     <div>
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">
+                        <span className="text-[10px] font-semibold text-[#16A34A] bg-white rounded px-1.5 py-0.5">
                           Current
                         </span>
-                        <p className="text-xs text-emerald-600 tabular-nums">
+                        <p className="text-xs text-[#16A34A] tabular-nums">
                           {formatDateTime(current.created_at)}
                         </p>
                       </div>
-                      <p className="text-sm font-medium text-emerald-800">{current.file_name}</p>
+                      <p className="text-sm font-medium text-[#16A34A]">{current.file_name}</p>
                     </div>
                     {currentUrl ? (
                       <a
                         href={currentUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white"
-                        style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+                        className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#1565C0] hover:bg-[#1251A3] transition-colors"
                       >
                         View
                       </a>
                     ) : (
-                      <span className="text-xs text-faint flex-shrink-0">—</span>
+                      <span className="text-xs text-[#9CA3AF] flex-shrink-0">—</span>
                     )}
                   </div>
 
@@ -1613,33 +1604,33 @@ export default async function AdminProjectDetailPage({
                   {older.length > 0 && (
                     <details className="mt-3">
                       <summary className="list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden">
-                        <span className="text-xs text-muted hover:text-dim transition-colors">
+                        <span className="text-xs text-[#6B7280] hover:text-[#111827] transition-colors">
                           View past packages ({older.length})
                         </span>
                       </summary>
-                      <div className="mt-2 divide-y divide-surface">
+                      <div className="mt-2 divide-y divide-[#E5E7EB]">
                         {older.map((f, i) => {
                           const versionNumber = packageVersionFiles.length - 1 - i;
                           const url = downloadUrls[f.id];
                           return (
                             <div key={f.id} className="flex items-center justify-between gap-3 py-2">
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-[10px] font-semibold text-muted tabular-nums flex-shrink-0">
+                                <span className="text-[10px] font-semibold text-[#6B7280] tabular-nums flex-shrink-0">
                                   v{versionNumber}
                                 </span>
-                                <p className="text-xs text-muted tabular-nums">{formatDateTime(f.created_at)}</p>
+                                <p className="text-xs text-[#6B7280] tabular-nums">{formatDateTime(f.created_at)}</p>
                               </div>
                               {url ? (
                                 <a
                                   href={url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs text-dim hover:underline flex-shrink-0"
+                                  className="text-xs text-[#6B7280] hover:underline flex-shrink-0"
                                 >
                                   View
                                 </a>
                               ) : (
-                                <span className="text-xs text-faint flex-shrink-0">—</span>
+                                <span className="text-xs text-[#9CA3AF] flex-shrink-0">—</span>
                               )}
                             </div>
                           );
@@ -1672,7 +1663,7 @@ export default async function AdminProjectDetailPage({
 
                 {/* Not ready hint */}
                 {!prereqsMet && (
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-[#6B7280]">
                     Complete the composition requirements above before generating.
                   </p>
                 )}
@@ -1686,10 +1677,10 @@ export default async function AdminProjectDetailPage({
 
                 {/* Completed package — primary state */}
                 {hasCompletedPackage && (
-                  <div className="flex items-center justify-between gap-4 bg-emerald-50 rounded-xl px-4 py-3">
+                  <div className="flex items-center justify-between gap-4 bg-[#F0FDF4] rounded-xl px-4 py-3">
                     <div>
-                      <p className="text-sm font-semibold text-emerald-800">Package ready</p>
-                      <p className="text-xs text-emerald-600 mt-0.5">
+                      <p className="text-sm font-semibold text-[#16A34A]">Package ready</p>
+                      <p className="text-xs text-[#16A34A] mt-0.5">
                         Generated {formatDateTime(latestCompletedPackageJob!.updated_at ?? latestCompletedPackageJob!.created_at)}
                       </p>
                     </div>
@@ -1697,8 +1688,7 @@ export default async function AdminProjectDetailPage({
                       href={packageDownloadUrl!}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white"
-                      style={{ background: "linear-gradient(135deg, #005bc1 0%, #004faa 100%)" }}
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#1565C0] hover:bg-[#1251A3] transition-colors"
                     >
                       View Package
                     </a>
@@ -1710,25 +1700,25 @@ export default async function AdminProjectDetailPage({
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                        packageJob.status === "failed"    ? "bg-red-500" :
-                        packageJob.status === "running"   ? "bg-blue-500 animate-pulse" :
-                        packageJob.status === "cancelled" ? "bg-gray-400" :
-                        "bg-amber-400"
+                        packageJob.status === "failed"    ? "bg-[#DC2626]" :
+                        packageJob.status === "running"   ? "bg-[#1565C0] animate-pulse" :
+                        packageJob.status === "cancelled" ? "bg-[#9CA3AF]" :
+                        "bg-[#D97706]"
                       }`}
                     />
-                    <span className={`text-sm font-medium ${JOB_STATUS_COLOR[packageJob.status as WorkflowJobStatus] ?? "text-muted"}`}>
+                    <span className={`text-sm font-medium ${JOB_STATUS_COLOR[packageJob.status as WorkflowJobStatus] ?? "text-[#6B7280]"}`}>
                       {JOB_STATUS_LABEL[packageJob.status as WorkflowJobStatus] ?? packageJob.status}
                     </span>
-                    <span className="text-xs text-muted">· {formatDate(packageJob.updated_at ?? packageJob.created_at)}</span>
+                    <span className="text-xs text-[#6B7280]">· {formatDate(packageJob.updated_at ?? packageJob.created_at)}</span>
                     {packageJob.error && (
-                      <span className="text-xs text-red-600 ml-1">— {packageJob.error}</span>
+                      <span className="text-xs text-[#DC2626] ml-1">— {packageJob.error}</span>
                     )}
                   </div>
                 )}
 
                 {/* Context hint */}
                 {(hasCompletedPackage || (!prereqsMet && hasTemplate)) && (
-                  <p className="text-xs text-muted">
+                  <p className="text-xs text-[#6B7280]">
                     {hasCompletedPackage && canGenerate
                       ? "Regenerate to rebuild the package with current files."
                       : hasCompletedPackage
@@ -1745,7 +1735,7 @@ export default async function AdminProjectDetailPage({
               title="Separate Outputs"
               description="Documents submitted alongside the main package. Required outputs must be on file before submission."
             >
-              <div className="divide-y divide-surface">
+              <div className="divide-y divide-[#E5E7EB]">
                 <SeparateOutputRow
                   name="Application Form"
                   required={!!(resolved?.requiresApplication ?? authorityProfile?.requires_application)}
